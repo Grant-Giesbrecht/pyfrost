@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyfrost-network"
+version = "0.0.0.dev0"
+authors = [
+  { name="Grant Giesbrecht", email="grant.giesbrecht@colorado.edu" },
+]
+description = "Provides a basic TCP server and client class in Python that can be used to quickly make networked apps. Includes encryption, different accounts, and an ecrypted user-data database."
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+	'pylogfile >= 0.2.1'
+]
+
+[project.urls]
+Homepage = "https://github.com/Grant-Giesbrecht/pyfrost"
+Issues = "https://github.com/Grant-Giesbrecht/pyfrost/issues"
