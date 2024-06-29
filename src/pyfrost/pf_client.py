@@ -154,7 +154,7 @@ class ClientAgent:
 			
 			return None
 		except Exception as e:
-			self.log.error(f"Failed to receive or decrypt message from client. ({str(e)})")
+			self.log.error(f"Failed to receive or decrypt message from server. ({str(e)})")
 			return None
 
 		return rv

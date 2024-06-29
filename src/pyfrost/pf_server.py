@@ -648,8 +648,10 @@ class ServerAgent (threading.Thread):
 					self.send("Access denied")
 					return
 				
+				db_str = self.db.view_database()
+				
 				# Return database string
-				self.send(self.db.view_database())
+				self.send(db_str)
 			
 			elif cmd == "SHUTDOWN":
 				

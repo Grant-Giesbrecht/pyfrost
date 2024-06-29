@@ -11,7 +11,8 @@ from pylogfile import *
 from abc import ABC, abstractmethod
 from jarnsaxa import *
 
-PACKET_SIZE = 1024
+#TODO: Make it able to read over multiple packets
+PACKET_SIZE = 16384
 AES_KEY_SIZE = 32
 SOCKET_TIMEOUT = 15 # Time (sec) between loop restarts if no new client
 SERVER_STAT_PRINT = 5 # Time (sec) between server stat console print
