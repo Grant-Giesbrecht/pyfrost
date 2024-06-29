@@ -131,6 +131,11 @@ class ServerAgent (threading.Thread):
 		self.thread_id = thread_id
 		self.id_str = f"{Fore.LIGHTMAGENTA_EX}[T-ID: {Fore.WHITE}{self.thread_id}{Fore.LIGHTMAGENTA_EX}]{Style.RESET_ALL} " # Thread ID string for each logging message
 		
+		# These will point to a sharedata and mutex in the main 'sharedata' and 'sharedata_mutexes'
+		# lists. Use sharedata_mutex prior to modifying the sharedata object.
+		self.sharedata = ShareData()
+		self.sharedata_mutex = None
+		
 		# The notes array contains any incoming notifications or messages. It will be modified
 		# by the distribution thread, so be sure to always use the mutex before checking/modifying it.
 		self.notes = []
@@ -154,8 +159,6 @@ class ServerAgent (threading.Thread):
 				user_directory[user].append(de)
 			else:
 				user_directory[user] = [de]
-		
-		#TODO: I don't think it should automatically reconnect to games, but maybe?
 		
 		# Remove user authorization
 		self.auth_user = user
@@ -626,7 +629,7 @@ class ServerAgent (threading.Thread):
 				if self.execute_gc(gc):
 					self.send("ACK")
 				else:
-					self.send(f"SERVFAIL:{self.game.error_message}")
+					self.send(f"SERVFAIL:")
 				
 			elif cmd == "LOGOUT":
 				
@@ -722,27 +725,9 @@ class ServerAgent (threading.Thread):
 				# accidentally modified the address of one of the ServerAgent's parameters (specifically last_update_time)
 				# and now the system is broken!
 				self.log.error("Failed to find user's client data address in directory. This could be a bug in server code.")
-
-		
-		# Remove client from game if client has joined game
-		if self.game.id != -1 and self.game_mtx is not None:
-			with self.game_mtx:
-				self.game.rem_player(self.auth_user)
-				
-				# self.game.client_count[self.auth_user] -= 1
-				
-				# #TODO: Decrementing count in players will not work if the client crashes instead of logging out properly
-				
-				# # Remove user key if no clients remain logged in
-				# if self.game.client_count[self.auth_user] == 0:
-				# 	del self.game.client_count[self.auth_user]
 		
 		# Empty any outstanding messages/notifications
 		self.notes.clear()
-		
-		# Remove associations with a specific lobby
-		self.game = Game(-1)
-		self.game_mtx = None
 		
 		# Deauthorize client
 		self.auth_user = None
@@ -787,13 +772,13 @@ class ServerAgent (threading.Thread):
 		# Populate notes
 		sd.notes = copy.deepcopy(self.notes)
 		
-		# Populate game
-		if self.game_mtx is None:
-			sd.packed_game = self.game.pack()
+		# Populate sharedata
+		if self.sharedata_mutex is None:
+			sd.packed_sharedata = self.sharedata.pack()
 		else:
-			# Acquire game mutex
-			with self.game_mtx:
-				sd.packed_game = self.game.pack()
+			# Acquire sharedata mutex
+			with self.sharedata_mutex:
+				sd.packed_sharedata = self.sharedata.pack()
 		
 		self.notes.clear() # Clear local notes
 		
