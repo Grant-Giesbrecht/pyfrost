@@ -26,7 +26,7 @@ def garbage_collect_thread_main():
 	used and can be deleted. """
 	
 	global server_opt
-	global game_objects, master_mutex
+	global sharedata_objects, master_mutex
 	global user_directory, directory_mutex
 	
 	time_last_collect = time.time()
@@ -48,7 +48,7 @@ def garbage_collect_thread_main():
 				# I can't find the correct game without using the global mutex.
 				# Scan over all game objects, look for ID
 				#TODO: Instead of matching their indecies, I should probably make them a touple or something
-				for idx, go in enumerate(game_objects):
+				for idx, go in enumerate(sharedata_objects):
 					
 					delete_this_index = False
 					
@@ -138,7 +138,7 @@ def server_stat_thread_main():
 	 periodically display status info about the server. """
 	
 	global server_opt
-	global game_objects, master_mutex
+	global sharedata_objects, master_mutex
 	global user_directory, directory_mutex
 	
 	time_last_print = time.time()
@@ -151,7 +151,7 @@ def server_stat_thread_main():
 			
 			# Count number of games
 			with master_mutex:
-				num_games = len(game_objects)
+				num_games = len(sharedata_objects)
 			
 			# Count number of logged-in users
 			with directory_mutex:
@@ -195,7 +195,9 @@ def main():
 	
 	# Loop accept client connections
 	while server_opt.server_running:
-				
+		
+		new_log = LogPile()
+		
 		# Accept a new client connection
 		try:
 			client_socket, client_addr = sock.accept()
@@ -205,7 +207,7 @@ def main():
 		logging.info(f"{id_str}Accepted client connected on address <{client_addr}>")
 		
 		# Create server agent class
-		sa = ServerAgent(client_socket, next_thread_id)
+		sa = ServerAgent(client_socket, next_thread_id, new_log)
 		
 		 # Update thread_id
 		next_thread_id += 1

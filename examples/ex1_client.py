@@ -793,13 +793,12 @@ def commandline_main(ca:ClientAgent):
 
 if __name__ == '__main__':
 	
+	log = LogPile()
+	
 	# Create client agent
-	ca = ClientAgent()
+	ca = ClientAgent(log)
 	ca.set_addr("localhost", 5555)
 	ca.connect_socket()
-	
-	# Close window
-	pygame.display.quit()
 	
 	# Run CLI
 	commandline_main(ca)

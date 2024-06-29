@@ -15,6 +15,8 @@ from Crypto.Util.Padding import pad, unpad
 from dataclasses import dataclass
 import time
 
+# Initilize global variable - thread counter
+next_thread_id = 0 # This is NOT protected by a mutex and should only ever be modified or read from the main thread
 
 # TODO: Make this configurable and not present in most client copies
 DATABASE_LOCATION = "userdata.db"
@@ -127,7 +129,7 @@ class ServerAgent (threading.Thread):
 		
 		# Multithreading variables
 		self.thread_id = thread_id
-		self.id_str = f"{Fore.LIGHTMAGENTA_EX}[T-ID: {Fore.WHITE}{self.thread_id}{Fore.LIGHTMAGENTA_EX}]{Fore.RESET_ALL} " # Thread ID string for each logging message
+		self.id_str = f"{Fore.LIGHTMAGENTA_EX}[T-ID: {Fore.WHITE}{self.thread_id}{Fore.LIGHTMAGENTA_EX}]{Style.RESET_ALL} " # Thread ID string for each logging message
 		
 		# The notes array contains any incoming notifications or messages. It will be modified
 		# by the distribution thread, so be sure to always use the mutex before checking/modifying it.
@@ -505,7 +507,7 @@ class ServerAgent (threading.Thread):
 			### Now AES keys have been exchanged and large data can be encrypted ###
 			
 			# Change state
-			self.state = ServerAgent.CS_LOGIN
+			self.state = ServerAgent.TS_LOGIN
 			
 			self.log.info(f"{self.id_str}Completed handshake")
 			

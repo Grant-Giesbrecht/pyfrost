@@ -8,7 +8,8 @@ from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from pylogfile import *
-import groupby
+from abc import ABC, abstractmethod
+from jarnsaxa import *
 
 PACKET_SIZE = 1024
 AES_KEY_SIZE = 32
@@ -20,10 +21,13 @@ ACCOUNT_ADMIN = 30
 ACCOUNT_STANDARD = 20
 ACCOUNT_LOW = 10
 
+# Initialize database access
+db_mutex = threading.Lock() # Create a mutex for the database
+
 def send_ptstring(sock, x, log:LogPile):
 	""" Sends a plaintext string 'x' to the socket 'sock'
 	"""
-
+	
 	try:
 		sock.send(str.encode(x))
 	except socket.error as e:
@@ -31,7 +35,7 @@ def send_ptstring(sock, x, log:LogPile):
 
 def get_ptstring(sock):
 	""" Get plain text string """
-
+	
 	return sock.recv(PACKET_SIZE).decode()
 
 def username_follows_rules(username:str):
@@ -65,27 +69,6 @@ def validate_message(message:str):
 		filt_msg = filt_msg + '?'
 	
 	return filt_msg
-
-def parseTwoIdx(input:str, delims:str):
-	p = 0
-	for k, g in groupby(input, lambda x:x in delims):
-		q = p + sum(1 for i in g)
-		if not k:
-			yield (p, q) # or p, q-1 if you are really sure you want that
-		p = q
-
-def parseIdx(input:str, delims:str=" ", keep_delims:str=""):
-	""" Parses a string, breaking it up into an array of words. Separates at delims. """
-	
-	out = []
-	
-	sections = list(parseTwoIdx(input, delims))
-	for s in sections:
-		out.append(StringIdx(input[s[0]:s[1]], s[0], s[1]))
-	return out
-
-# Initialize database access
-db_mutex = threading.Lock() # Create a mutex for the database
 
 class UserDatabase:
 	""" Handles interactions with, and manipulations of the user data database.
@@ -336,7 +319,11 @@ class Packable(ABC):
 class ShareData(Packable):
 	
 	def __init__(self):
-		pass
+		super().__init__()
+	
+	def set_manifest(self):
+		super().set_manifest()
+
 
 class GenCommand(Packable):
 	''' Represents a command sent from client to server. This can be packed as a JSON and

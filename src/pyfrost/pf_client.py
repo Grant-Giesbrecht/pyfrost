@@ -27,18 +27,18 @@ class ClientAgent:
 	CS_LOGIN = 2 # At login/signup phase - not authorized
 	CS_MAIN = 3 # Connected to server, can perform primary operations
 	
-	def __init__(self, conf:dict, log:LogPile):
+	def __init__(self, log:LogPile, address:str=None, port:int=None):
 		
 		# Save log object
 		self.log = log
 		
 		self.sock = None
-		self.ipaddr = conf.core_data['server_addr']
-		self.port = conf.core_data['server_port']
+		self.ipaddr = address
+		self.port = port
 		self.addr = (self.ipaddr, self.port)
-
+		
 		self.user = None # If logged in, this is the connected user
-
+		
 		# Generate keys
 		self.public_key, self.private_key = rsa.newkeys(1024)
 
@@ -465,7 +465,7 @@ class ClientAgent:
 		# self.online = False
 
 		# Tell server to begin handshake
-		send_ptstring(self.sock, "HS")
+		send_ptstring(self.sock, "HS", self.log)
 
 		# Get server private key back
 		self.log.debug("Receiving public key")
