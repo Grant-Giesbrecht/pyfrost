@@ -428,7 +428,7 @@ class ServerAgent (threading.Thread):
 		""" Creates a new account in the database with specified information """
 		
 		# Only admin can create non-standard accounts
-		if self.usr_class != KONTO_ADMIN:
+		if self.usr_type != KONTO_ADMIN:
 			new_usr_class = KONTO_STANDARD
 		
 		# Add to database
