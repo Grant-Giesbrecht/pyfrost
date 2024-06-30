@@ -435,7 +435,7 @@ class ServerAgent (threading.Thread):
 			new_usr_class = KONTO_STANDARD
 		
 		# Add to database
-		self.db.add_user(username, password, email, new_usr_class)
+		return self.db.add_user(username, password, email, new_usr_class)
 
 	def run(self):
 		""" Main loop. Engages when the thread is started. """

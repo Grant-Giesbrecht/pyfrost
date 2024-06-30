@@ -130,7 +130,7 @@ class UserDatabase:
 			conn.commit()
 		
 	def add_user(self, username:str, password:str, email:str, usr_type:str):
-		""" Adds a user to the database """
+		""" Adds a user to the database. Returns true if successful """
 
 		# Verify that user type is valid
 		if usr_type not in [ACCOUNT_LOW, ACCOUNT_STANDARD, ACCOUNT_ADMIN]:
@@ -156,6 +156,8 @@ class UserDatabase:
 		
 			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.datetime.now())))
 			conn.commit()
+		
+		return True
 	
 	def get_user_id(self, username:str):
 		""" Accepts a username and looks up the ID of that user. Returns None if 
