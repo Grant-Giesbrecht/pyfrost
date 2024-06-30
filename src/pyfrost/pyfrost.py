@@ -13,6 +13,7 @@ from jarnsaxa import *
 import logging #TODO: Replace this with pylogfile eventually
 import copy
 import os
+import datetime
 
 LOG_LEVEL = logging.INFO
 tabchar = "    "
@@ -90,6 +91,14 @@ def validate_message(message:str):
 	
 	return filt_msg
 
+def valid_email(email:str):
+	""" https://www.zerobounce.net/python-email-verification/
+	"""
+	
+	regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
+	return re.match(regex, email)
+	
+
 class UserDatabase:
 	""" Handles interactions with, and manipulations of the user data database.
 	
@@ -145,7 +154,7 @@ class UserDatabase:
 				self.log.critical(f"{self.id_str}Failed to access account ID from database.")
 				return False
 		
-			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type) VALUES (?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type))
+			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.datetime.now())))
 			conn.commit()
 	
 	def get_user_id(self, username:str):
