@@ -102,10 +102,10 @@ def commandline_main(ca:ClientAgent):
 		
 		# Main Prompt
 		cmd_raw = input(f"{online_string} {user_string}{Fore.GREEN}> {Style.RESET_ALL}")
-		words = parseIdx(cmd_raw, " \t")
+		words = parse_idx(cmd_raw, " \t")
 		
 		cmd_code = ensureWhitespace(cmd_raw, "[],")
-		words_code = parseIdx(cmd_code, " \t")
+		words_code = parse_idx(cmd_code, " \t")
 		
 		if len(words) < 1:
 			continue
