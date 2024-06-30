@@ -5,7 +5,6 @@ from colorama import Fore, Style, Back
 
 from pyfrost.pyfrost import *
 
-import copy
 import rsa
 import hashlib
 import sqlite3
@@ -690,6 +689,26 @@ class ServerAgent (threading.Thread):
 				
 				# Send sync data
 				self.send(sd.to_utf8())
+			
+			elif cmd == "MSGUSR":
+				
+				self.send("USR")
+				
+				# Get username
+				username = self.recv_str()
+				
+				self.send("MSG")
+				
+				# Get username
+				msg = self.recv_str()
+				
+				# Validate message
+				filt_msg = validate_message(msg)
+				
+				# Create message and pass it along!
+				self.create_message(username, filt_msg)
+				
+				self.send("PASS")
 	
 	def logout(self):
 		""" Logout the user. Deauthorize the client."""

@@ -4,6 +4,9 @@ import os
 
 if os.name != 'nt':
 	import readline
+	
+CLI_AUTOSYNC = True
+
 
 def autosync(ca:ClientAgent):
 	

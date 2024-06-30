@@ -10,6 +10,16 @@ from Crypto.Util.Padding import pad, unpad
 from pylogfile import *
 from abc import ABC, abstractmethod
 from jarnsaxa import *
+import logging #TODO: Replace this with pylogfile eventually
+import copy
+
+LOG_LEVEL = logging.INFO
+tabchar = "    "
+prime_color = Fore.CYAN
+standard_color = Fore.YELLOW
+quiet_color = Fore.LIGHTBLACK_EX
+# logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(message)s', level=logging.INFO)
+logging.basicConfig(format=f'{prime_color}%(levelname)s:{standard_color} %(message)s{quiet_color} | %(asctime)s{Style.RESET_ALL}', level=LOG_LEVEL)
 
 #TODO: Make it able to read over multiple packets
 PACKET_SIZE = 16384
