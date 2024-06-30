@@ -1,11 +1,24 @@
 from pyfrost.pf_client import *
 from colorama import Fore, Style
 import os
+from getpass import getpass
+import argparse
 
 if os.name != 'nt':
 	import readline
 	
 CLI_AUTOSYNC = True
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-l', '--local', help="Use localhost instead of intranet address.", action='store_true')
+args = parser.parse_args()
+
+# Create socket - this is not protected by a mutex and should only ever be used by the main thread
+if args.local:
+	ip_address = "localhost"
+else:
+	ip_address = "192.168.1.116"
+
 
 
 def autosync(ca:ClientAgent):
@@ -113,7 +126,7 @@ def commandline_main(ca:ClientAgent):
 		
 		if cmd.upper() == "LOGIN":
 			un = input("  Username: ")
-			pw = input("  Password: ")
+			pw = getpass("  Password: ")
 			if ca.login(un, pw):
 				print(f"{Fore.GREEN}Successfully logged in{Style.RESET_ALL}")
 			else:
@@ -121,7 +134,10 @@ def commandline_main(ca:ClientAgent):
 		elif cmd.upper() == "SIGNUP":
 			un = input("  Username: ")
 			em = input("     Email: ")
-			pw = input("  Password: ")
+			pw = getpass(prompt="  Password: ")
+			
+			#TODO: Sends password as plain text! Hashing needs to be done at client side!
+			
 			if ca.create_account(un, em, pw):
 				print(f"{Fore.GREEN}Successfully created account{Style.RESET_ALL}")
 			else:
@@ -356,7 +372,7 @@ if __name__ == '__main__':
 	
 	# Create client agent
 	ca = ClientAgent(log)
-	ca.set_addr("localhost", 5555)
+	ca.set_addr(ip_address, 5555)
 	ca.connect_socket()
 	
 	# Run CLI

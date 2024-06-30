@@ -2,11 +2,19 @@ from pyfrost.pf_server import *
 import time
 from pylogfile import *
 import logging
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-l', '--local', help="Use localhost instead of intranet address.", action='store_true')
+args = parser.parse_args()
 
 # Create socket - this is not protected by a mutex and should only ever be used by the main thread
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.settimeout(SOCKET_TIMEOUT)
-sock.bind(("localhost", 5555))
+if args.local:
+	sock.bind(("localhost", 5555))
+else:
+	sock.bind(("192.168.1.116", 5555))
 sock.listen()
 
 # Create server stat print timer variable
@@ -208,6 +216,7 @@ def main():
 		
 		# Create server agent class
 		sa = ServerAgent(client_socket, next_thread_id, new_log)
+		sa.enforce_password_rules = False # Allow weak passwords
 		
 		 # Update thread_id
 		next_thread_id += 1

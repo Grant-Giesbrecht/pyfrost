@@ -154,7 +154,7 @@ class UserDatabase:
 				self.log.critical(f"{self.id_str}Failed to access account ID from database.")
 				return False
 		
-			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.datetime.now())))
+			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.datetime.now())))
 			conn.commit()
 	
 	def get_user_id(self, username:str):
@@ -168,7 +168,7 @@ class UserDatabase:
 			cur = conn.cursor()
 			
 			# Check for user
-			cur.execute("SELECT id FROM userdata WHERE username = ?", (username,))
+			cur.execute("SELECT acct_id FROM userdata WHERE username = ?", (username,))
 			qd = cur.fetchall()
 			if qd:
 				return qd[0][0]

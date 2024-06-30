@@ -102,7 +102,10 @@ class ServerAgent (threading.Thread):
 		self.auth_user = None # This will have username of user who has been authorized as loged in
 		self.acct_id = None # CLient account ID
 		self.usr_type = None # type of account
-
+		
+		# Controls if it enforces minimum password requirement rules.
+		self.enforce_password_rules = True
+		
 		# Socket object from connecting to client program
 		self.sock = sock
 		
@@ -575,7 +578,7 @@ class ServerAgent (threading.Thread):
 				
 				# Receive and check password
 				password = self.recv_str()
-				if not self.check_valid_password(password): # password Failed
+				if self.enforce_password_rules and (not self.check_valid_password(password)): # password Failed
 						ec = self.err() # Get error code
 						# Send error code and get ack
 						self.send(f"ERROR:{ec}")

@@ -94,7 +94,15 @@ while True:
 			print(f"{Fore.RED}{tab_char}  Invalid username '{rt}' provided.{Style.RESET_ALL}")
 	
 	# Get password
-	pwd = getpass(prompt=f"{prompt_color}{tab_char}[{level_str(acct_type)}{prompt_color}] Username: {Style.RESET_ALL}")
+	while True:
+		pwd = getpass(prompt=f"{prompt_color}{tab_char}[{level_str(acct_type)}{prompt_color}] password: {Style.RESET_ALL}")
+		pwd2 = getpass(prompt=f"{prompt_color}{tab_char}[{level_str(acct_type)}{prompt_color}] Retype password: {Style.RESET_ALL}")
+	
+		if pwd != pwd2:
+			print(f"{Fore.RED}{tab_char}  Passwords do not match.{Style.RESET_ALL}")
+		else:
+			break
+	
 	password_hash = hashlib.sha256(pwd.encode()).hexdigest()
 	
 	# Lookup highest account ID
