@@ -478,34 +478,21 @@ class ServerAgent (threading.Thread):
 		
 		logging.debug(f"Executing GenCommand: [{gc.command}], data={gc.data}, meta={gc.metadata}")
 		
-		if gc.command == "MOVESHIP":
+		if gc.command == "MSGUSR":
 			
 			# Check fields present
-			gch = gc.has(['PATH', "SHIP-ID"])
+			gch = gc.has(['RECIP', "MSG"])
 			if gch < 0:
 				logging.error("GenCommand missing required data fields.")
 				return False
 			elif gch > 1:
 				logging.warning("GenCommand contains un-used data fields")
-			
-			# Create path object
-			path_obj = MapPath()
-			path_obj.init_from_str(gc.data['PATH'])
-			
-			# Update navgrid #TODO: This is wildly repetative!
-			# TODO: A good solution would be to modify the nav_grid on the server, but only
-			# the affected cells when something is changed. 
-			# Maybe recalcualte the nav_grid at the start of each turn. Perhaps it shouldn't be
-			# stored in the clientagent and serveragent, but rather in the game object and passed
-			# back and forth and modified each time the game updates.
-			self.nav_grid.update(self.game)
-			
-			# Try to move ship
-			with self.game_mtx:
 				
-				# Run command
-				if not self.game.move_ship(self.auth_user, int(gc.data['SHIP-ID']), path_obj, self.nav_grid):
-					return False
+			# Validate message
+			filt_msg = validate_message(gc.data['MSG'])
+				
+			# Create message and pass it along!
+			self.create_message(gc.data['RECIP'], filt_msg)
 			
 		else:
 			
@@ -759,26 +746,6 @@ class ServerAgent (threading.Thread):
 				
 				# Send sync data
 				self.send(sd.to_utf8())
-			
-			elif cmd == "MSGUSR":
-				
-				self.send("USR")
-				
-				# Get username
-				username = self.recv_str()
-				
-				self.send("MSG")
-				
-				# Get username
-				msg = self.recv_str()
-				
-				# Validate message
-				filt_msg = validate_message(msg)
-				
-				# Create message and pass it along!
-				self.create_message(username, filt_msg)
-				
-				self.send("PASS")
 	
 	def logout(self):
 		""" Logout the user. Deauthorize the client."""

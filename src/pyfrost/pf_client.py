@@ -89,6 +89,35 @@ class ClientAgent:
 		# Perform handshake
 		self.handshake()
 	
+	def send_command(self, c:GenCommand):
+		''' Sends a command object to the server. '''
+		
+		# DOESNT CHECK FOR STATE _ ALL VALID
+		# # Check for valid state
+		# if self.state == ClientAgent.CS_GAME or self.state == ClientAgent.CS_LOGIN:
+		# 	logging.warning("Cannot sync prior to login.")
+		# 	return False
+		
+		# Prepare server for generalized command
+		if not self.query("GENCMD"):
+			return False
+		if self.reply != "ACK":
+			logging.warning(f"Did not receive acknowledgement for GENCMD from server. Connection is likely broken! ({self.err()})")
+			return False
+		
+		logging.debug(f"Sending GenCommand: [{c.command}], data={c.data}, meta={c.metadata}")
+		
+		# Send command data to server - some affirmative/negative response will be returned.
+		self.query(c.to_utf8())
+		
+		if self.reply == "ACK":
+			logging.debug("GENCMD was processed on server without incident.")
+		else:
+			logging.debug(f"Server refused to execute GENCMD. ({self.reply})")
+			return False
+		
+		return True
+	
 	def err(self):
 		"""Returns the last error code. Returns None if last code already read."""
 		
@@ -587,32 +616,15 @@ class ClientAgent:
 		# Verify message doesn't contain unrecognized characters
 		filt_msg = validate_message(message)
 		
-		# Send message
-		if not self.query("MSGUSR"):
-			self.log.warning(f"Failed to send MSGUSR signal ({self.err()})")
+		cmd = GenCommand("MSGUSR", {"RECIP":user, "MSG":filt_msg})
+		
+		# Check for valid state
+		if self.state != ClientAgent.CS_MAIN:
+			logging.warning("Cannot send `MSGUSR` instruction outside of CS_MAIN state.")
 			return False
 		
-		if self.reply != "USR":
-			self.log.warning(f"Server failed to process MSGUSR ({self.err()})")
-			return False
-		
-		# Send recipient name
-		if not self.query(user):
-			self.log.warning(f"Failed to send MSGUSR signal ({self.err()})")
-			return False
-		
-		if self.reply != "MSG":
-			self.log.warning(f"Server failed to process MSGUSR ({self.err()})")
-			return False
-		
-		# Send message
-		if not self.query(filt_msg):
-			self.log.warning(f"Failed to send MSGUSR signal ({self.err()})")
-			return False
-		
-		if self.reply != "PASS":
-			self.log.warning(f"Server failed to process message in MSGUSR exchange ({self.err()})")
-			return False
+		# Send command to server
+		return self.send_command(cmd)
 	
 	def sync(self):
 		""" Updates local data from the server. Gets messages/notifications, ShareData, etc """
@@ -783,6 +795,7 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			# Delete account(s)
 			for usr in words[1:]:
 				ca.delete_account(usr.str)
+		
 		elif cmd.upper() == "MSGUSR":
 			
 			# Check for number of arguments
