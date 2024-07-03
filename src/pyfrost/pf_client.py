@@ -660,8 +660,13 @@ def autosync(ca:ClientAgent):
 		print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
 	ca.notes = []
 
-def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Callable[[ClientAgent, list, ], None]=None) -> bool:
+def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Callable[[ClientAgent, ClientOptions, list ], None]=None) -> None:
+	'''
 	
+		commandline_extended is an optional argument. If provided, it should point to a function that will accept the clientagent, and the client options object, and the list of words. It should return a boolean value, returning true if it recognizes the command 
+		and false otherwise.
+	
+	'''
 	while True:
 		
 		bracket_color = Fore.LIGHTBLACK_EX

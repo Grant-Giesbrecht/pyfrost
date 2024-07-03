@@ -1,3 +1,6 @@
+''' Minimum example for setting up a command line client using Pyfrost.
+'''
+
 from pyfrost.pf_client import *
 from colorama import Fore, Style
 import os
@@ -30,8 +33,6 @@ def custom_func(ca:ClientAgent, opt:ClientOptions, words:list) -> bool:
 		return True
 	
 	return False
-
-
 
 if __name__ == '__main__':
 	
