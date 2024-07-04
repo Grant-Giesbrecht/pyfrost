@@ -348,7 +348,9 @@ class Packable(ABC):
 			setattr(self, mi, temp_list)
 				# self.obj_manifest[mi] = copy.deepcopy(temp_list)
 
-class ShareData(Packable):
+class ShareData():
+	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
+	management in a thread-safe manner. '''
 	
 	def __init__(self):
 		super().__init__()
@@ -357,14 +359,7 @@ class ShareData(Packable):
 		self._data = {}
 		self.mtx = threading.Lock()
 	
-	def set_manifest(self):
-		super().set_manifest()
-		
-		self.manifest.append("_data")
-		
-		# mtx is not included in mtx because it isn't needed on the client side, only at the server.
-	
-	def add_list(self, param_name:str) -> bool:
+	def add_param(self, param_name:str) -> bool:
 		''' Adds a list under the parameter 'param_name'. '''
 		
 		with self.mtx: # Acquire mutex
@@ -377,7 +372,7 @@ class ShareData(Packable):
 			# Initialize parameter
 			self._data['param_name'] = []
 	
-	def list_append(self, param_name:str, val):
+	def append(self, param_name:str, val):
 		''' Adds an element to the specified list. '''
 		
 		with self.mtx: # Acquire mutex
@@ -396,7 +391,7 @@ class ShareData(Packable):
 		
 		return True
 	
-	def list_read(self, param_name:str, idx:int):
+	def read(self, param_name:str, idx:int):
 		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
 		 the object so the return value is entirely thread safe. Returns none on error. '''
 		
@@ -414,12 +409,12 @@ class ShareData(Packable):
 			
 			# REturn copy of value
 			try:
-				return copy.deepcopy(self._data[param_name])
+				return copy.deepcopy(self._data[param_name][idx])
 			except Exception as e:
 				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
 				return None
 	
-	def list_read_attr(self, param_name:str, idx:int, attr:str):
+	def read_attr(self, param_name:str, idx:int, attr:str):
 		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
 		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
 		
@@ -436,18 +431,18 @@ class ShareData(Packable):
 				return None
 			
 			# Check attribute exists
-			if attr not in self._data[param_name].__dict__:
+			if attr not in self._data[param_name][idx].__dict__:
 				# self.log.warning(f"Missing attribute.")
 				return None
 			
 			# REturn copy of value
 			try:
-				return copy.deepcopy(self._data[param_name].__dict__[attr])
+				return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
 			except Exception as e:
 				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
 				return None
 	
-	def list_set(self, param_name:str, idx:int, val):
+	def set(self, param_name:str, idx:int, val):
 		''' Sets a value of the specified parameter at the specified index. '''
 		
 		with self.mtx: # Acquire mutex
@@ -464,14 +459,14 @@ class ShareData(Packable):
 			
 			# REturn copy of value
 			try:
-				self._data[param_name] = val
+				self._data[param_name][idx] = val
 			except Exception as e:
 				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
 				return False
 		
 		return True
 	
-	def list_set_attr(self, param_name:str, idx:int, attr:str, val):
+	def set_attr(self, param_name:str, idx:int, attr:str, val):
 		''' Sets a value of the specified parameter and attribute at the specified index. '''
 		
 		with self.mtx: # Acquire mutex
@@ -487,19 +482,98 @@ class ShareData(Packable):
 				return False
 			
 			# Check attribute exists
-			if attr not in self._data[param_name].__dict__:
+			if attr not in self._data[param_name][idx].__dict__:
 				# self.log.warning(f"Missing attribute.")
 				return False
 			
 			# Return copy of value
 			try:
-				self._data[param_name].__dict__[attr] = val
+				self._data[param_name][idx].__dict__[attr] = val
 			except Exception as e:
 				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
 				return False
 		
 		return True
 	
+	def remove(self, param_name:str, idx:int) -> bool:
+		''' Deletes the value from the specified index. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return False
+			
+			# Check index in range
+			if idx >= len(self._data[param_name]):
+				# self.log.warning(f"Index out of bounds.")
+				return False
+			
+			# Return copy of value
+			try:
+				del self._data[param_name][idx]
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return False
+		
+		return True
+	
+	def find(self, param_name:str, val, end_on_find:bool=True) -> list:
+		''' Checks each index of the specified parameter and looks for the provided value. Returns a
+		a list of every index that matches. Returns only the first index if end_on_find is set to true.
+		Returns an empty list if no matches occur.'''
+		
+		match_vals = []
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return match_vals
+			
+			# Scan over all values
+			for idx, parval in enumerate(self._data[param_name]):
+				
+				# Check for match
+				if parval == val:
+					match_vals.append(idx)
+					if end_on_find:
+						break
+		
+		return match_vals
+	
+	def find_attr(self, param_name:str, attr:str, val, end_on_find:bool=True) -> list:
+		''' Checks each index of the specified parameter and looks for the specified attribute
+		to match the provided value.  Returns a	a list of every index that matches. Returns 
+		only the first index if end_on_find is set to true.	Returns an empty list if no matches occur.'''
+		
+		match_vals = []
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return []
+			
+			# Scan over all values
+			for idx, parval in enumerate(self._data[param_name]):
+				
+				# Check attribute exists
+				if attr not in parval.__dict__:
+					# self.log.warning(f"Missing attribute.")
+					return []
+				
+				# Check for match
+				if parval.__dict__[attr] == val:
+					match_vals.append(idx)
+					if end_on_find:
+						break
+		
+		return match_vals
+
 class GenData(Packable):
 	''' Represents a packet of data sent between server and client. A GenData object is typically a response from the listener to the initiator, unless packaged into a more sophisticated child-class. '''
 	
