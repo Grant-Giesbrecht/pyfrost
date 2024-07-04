@@ -14,6 +14,7 @@ import logging #TODO: Replace this with pylogfile eventually
 import copy
 import os
 import datetime
+import copy
 
 LOG_LEVEL = logging.INFO
 tabchar = "    "
@@ -351,11 +352,154 @@ class ShareData(Packable):
 	
 	def __init__(self):
 		super().__init__()
+		
+		# Data list. It should not be directly accessed because it needs to be modified and read only via mutex control
+		self._data = {}
+		self.mtx = threading.Lock()
 	
 	def set_manifest(self):
 		super().set_manifest()
-
-
+		
+		self.manifest.append("_data")
+		
+		# mtx is not included in mtx because it isn't needed on the client side, only at the server.
+	
+	def add_list(self, param_name:str) -> bool:
+		''' Adds a list under the parameter 'param_name'. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check if param already exists
+			if param_name in self._data:
+				# self.log.warning(f"Parameter '{param_name}' already exists in ShareData object.")
+				return False
+			
+			# Initialize parameter
+			self._data['param_name'] = []
+	
+	def list_append(self, param_name:str, val):
+		''' Adds an element to the specified list. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return False
+			
+			# Add value to list
+			try:
+				self._data[param_name].append(val)
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return False
+		
+		return True
+	
+	def list_read(self, param_name:str, idx:int):
+		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
+		 the object so the return value is entirely thread safe. Returns none on error. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return None
+			
+			# Check index in range
+			if idx >= len(self._data[param_name]):
+				# self.log.warning(f"Index out of bounds.")
+				return None
+			
+			# REturn copy of value
+			try:
+				return copy.deepcopy(self._data[param_name])
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return None
+	
+	def list_read_attr(self, param_name:str, idx:int, attr:str):
+		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
+		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return None
+			
+			# Check index in range
+			if idx >= len(self._data[param_name]):
+				# self.log.warning(f"Index out of bounds.")
+				return None
+			
+			# Check attribute exists
+			if attr not in self._data[param_name].__dict__:
+				# self.log.warning(f"Missing attribute.")
+				return None
+			
+			# REturn copy of value
+			try:
+				return copy.deepcopy(self._data[param_name].__dict__[attr])
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return None
+	
+	def list_set(self, param_name:str, idx:int, val):
+		''' Sets a value of the specified parameter at the specified index. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return False
+			
+			# Check index in range
+			if idx >= len(self._data[param_name]):
+				# self.log.warning(f"Index out of bounds.")
+				return False
+			
+			# REturn copy of value
+			try:
+				self._data[param_name] = val
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return False
+		
+		return True
+	
+	def list_set_attr(self, param_name:str, idx:int, attr:str, val):
+		''' Sets a value of the specified parameter and attribute at the specified index. '''
+		
+		with self.mtx: # Acquire mutex
+			
+			# Check param exists
+			if param_name not in self.data:
+				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				return False
+			
+			# Check index in range
+			if idx >= len(self._data[param_name]):
+				# self.log.warning(f"Index out of bounds.")
+				return False
+			
+			# Check attribute exists
+			if attr not in self._data[param_name].__dict__:
+				# self.log.warning(f"Missing attribute.")
+				return False
+			
+			# Return copy of value
+			try:
+				self._data[param_name].__dict__[attr] = val
+			except Exception as e:
+				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				return False
+		
+		return True
+	
 class GenData(Packable):
 	''' Represents a packet of data sent between server and client. A GenData object is typically a response from the listener to the initiator, unless packaged into a more sophisticated child-class. '''
 	

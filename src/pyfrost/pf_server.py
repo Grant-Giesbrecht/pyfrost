@@ -103,7 +103,7 @@ class ServerAgent (threading.Thread):
 	TS_MAIN = 3 # Client authorized, at main loop
 	TS_EXIT = 0 # Exit main loop, close thread
 	
-	def __init__(self, sock, thread_id, log:LogPile, extension_function:Callable[..., None]=None):
+	def __init__(self, sock, thread_id, log:LogPile, extension_function_query:Callable[..., None]=None, extension_function_send:Callable[..., None]=None):
 		
 		super().__init__()
 		
@@ -118,7 +118,8 @@ class ServerAgent (threading.Thread):
 		
 		# Controls if it enforces minimum password requirement rules.
 		self.enforce_password_rules = True
-		self.extension_function = extension_function
+		self.extension_function_send = extension_function_send
+		self.extension_function_query = extension_function_query
 		
 		# Socket object from connecting to client program
 		self.sock = sock
