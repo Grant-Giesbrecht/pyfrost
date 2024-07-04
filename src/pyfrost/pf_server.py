@@ -469,7 +469,7 @@ class ServerAgent (threading.Thread):
 			
 			self.main_loop()
 	
-	def execute_gc(self, gc:GenCommand):
+	def execute_sendgc(self, gc:GenCommand):
 		''' Executes a generalized command. Returns true if executed without error.
 		 
 		NOTE: This function should NOT return any data to the client. It must simply 
@@ -497,8 +497,8 @@ class ServerAgent (threading.Thread):
 		else:
 			
 			# See if command is recognized in user extension function
-			if self.extension_function is not None:
-				found_cmd = self.extension_function(self, gc)
+			if self.extension_function_send is not None:
+				found_cmd = self.extension_function_send(self, gc)
 			else:
 				found_cmd = False
 			
@@ -508,6 +508,45 @@ class ServerAgent (threading.Thread):
 				return False
 		
 		return True
+	
+	def execute_querygc(self, gc:GenCommand):
+		''' Executes a generalized command. Returns true if executed without error.
+		 
+		NOTE: This function DOES return data as a GenData object but it RETURNS it, it should NOT send data itself to the client. The whole point of the GenCommand/Data system is to avoid 
+		having each command implement its own comm system. I want all of that handled by GenCommand
+		and GenData automatically. If an error occurs, returns a GenData object with STATUS
+		set to False and you can add text to the error variable. You can also	populate any error register (game.error_message)..
+		'''
+		
+		# Initialize error GD
+		err_gd = GenData({"STATUS": False})
+		
+		logging.debug(f"Executing GenCommand: [{gc.command}], data={gc.data}, meta={gc.metadata}")
+		
+		if gc.command == "NUMUSER":
+			
+			# Check fields present
+			gch = gc.has([])
+			if gch > 1:
+				logging.warning("GenCommand contains un-used data fields")
+			
+			# Get number of users
+			with directory_mutex:
+				num_unique = len(user_directory)
+			
+			# Return response to client
+			gdata = GenData({"NUMUSER":num_unique, "STATUS": True})
+			return gdata
+		
+		else:
+			
+			# See if command is recognized in user extension function
+			if self.extension_function_query is not None:
+				gdata = self.extension_function_query(self, gc)
+			else:
+				logging.warning(f"Failed to recognize generalized command: {gc.command}.")
+				err_gd.metadata['error_str'] = "Failed to recognize command."
+				return err_gd
 	
 	def main_loop(self):
 		""" This is the function called by the main loop that is run while this thread is active. It
@@ -671,7 +710,7 @@ class ServerAgent (threading.Thread):
 			cmd = self.recv_str()
 			
 			# Match command
-			if cmd == "GENCMD":
+			if cmd == "SENDGC":
 				
 				# Send ack
 				self.send("ACK")
@@ -682,10 +721,27 @@ class ServerAgent (threading.Thread):
 				gc.from_utf8(data_bytes)
 				
 				# Execute command
-				if self.execute_gc(gc):
+				if self.execute_sendgc(gc):
 					self.send("ACK")
 				else:
 					self.send(f"SERVFAIL:")
+			
+			if cmd == "QRYGC":
+				
+				# Send ack
+				self.send("ACK")
+				
+				# Receive command
+				data_bytes = self.recv()
+				gc = GenCommand()
+				gc.from_utf8(data_bytes)
+				
+				# Execute command
+				gdata = self.execute_querygc(gc)
+				
+				# Send gdata on to client. Even if an error occured, this gdata will
+				# contain the error message for the client to see.
+				self.send(gdata.to_utf8())
 				
 			elif cmd == "LOGOUT":
 				

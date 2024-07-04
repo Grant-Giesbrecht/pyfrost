@@ -90,7 +90,7 @@ class ClientAgent:
 		self.handshake()
 	
 	def send_command(self, c:GenCommand):
-		''' Sends a command object to the server. '''
+		''' Sends a command object to the server. Receives no response. '''
 		
 		# DOESNT CHECK FOR STATE _ ALL VALID
 		# # Check for valid state
@@ -99,10 +99,10 @@ class ClientAgent:
 		# 	return False
 		
 		# Prepare server for generalized command
-		if not self.query("GENCMD"):
+		if not self.query("SENDGC"):
 			return False
 		if self.reply != "ACK":
-			logging.warning(f"Did not receive acknowledgement for GENCMD from server. Connection is likely broken! ({self.err()})")
+			logging.warning(f"Did not receive acknowledgement for SENDGC from server. Connection is likely broken! ({self.err()})")
 			return False
 		
 		logging.debug(f"Sending GenCommand: [{c.command}], data={c.data}, meta={c.metadata}")
@@ -111,12 +111,49 @@ class ClientAgent:
 		self.query(c.to_utf8())
 		
 		if self.reply == "ACK":
-			logging.debug("GENCMD was processed on server without incident.")
+			logging.debug("SENDGC was processed on server without incident.")
 		else:
-			logging.debug(f"Server refused to execute GENCMD. ({self.reply})")
+			logging.debug(f"Server refused to execute SENDGC. ({self.reply})")
 			return False
 		
 		return True
+	
+	def query_command(self, c:GenCommand):
+		''' Sends a command object to the server as a query. Expects a GenData object back and 
+		returns it. Returns None on error.
+		'''
+		
+		# DOESNT CHECK FOR STATE _ ALL VALID
+		# # Check for valid state
+		# if self.state == ClientAgent.CS_GAME or self.state == ClientAgent.CS_LOGIN:
+		# 	logging.warning("Cannot sync prior to login.")
+		# 	return False
+		
+		# Prepare server for generalized command
+		if not self.query("QRYGC"):
+			return False
+		if self.reply != "ACK":
+			logging.warning(f"Did not receive acknowledgement for QRYGC from server. Connection is likely broken! ({self.err()})")
+			return False
+		
+		logging.debug(f"Querying GenCommand: [{c.command}], data={c.data}, meta={c.metadata}")
+		
+		# Send command data to server - some affirmative/negative response will be returned.
+		self.send(c.to_utf8())
+		
+		# Get response as bytes and convert to GenData object
+		try:
+			data_bytes = self.recv()
+			gdata = GenData()
+			gdata.from_utf8(data_bytes)
+		except:
+			self.log.error(f"Failed to convert response to GenData object.")
+			return None
+		
+		# Sanity check gdata
+		
+		# Return response
+		return gdata
 	
 	def err(self):
 		"""Returns the last error code. Returns None if last code already read."""
@@ -599,6 +636,25 @@ class ClientAgent:
 		# Return result - Note this will return as 'PASS' even if the user didn't exist
 		return (self.reply == "PASS")
 	
+	def num_user(self):
+		""" Gets the number of users currently logged into the server. 
+		Returns None if error, else returns number of logged in users.
+		"""
+		
+		# Allow any state
+		
+		cmd = GenCommand("NUMUSER", {})
+		
+		# Send command to server
+		gdata = self.query_command(cmd)
+		
+		# Validate returned data
+		if not gdata.validate_reply(['STATUS', 'NUMUSER'], self.log):
+			return None
+		
+		# Else return value
+		return int(gdata.data['NUMUSER'])
+	
 	def message_user(self, user:str, message:str):
 		
 		""" Sends a message to the user (specified by username) """
@@ -814,6 +870,15 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			# Autosync
 			if opt.cli_autosync:
 				autosync(ca)
+		
+		elif cmd.upper() == "NUMUSER":
+			
+			# Execute command
+			nu = ca.num_user()
+			if nu is None:
+				print(f"\t{Fore.RED}Error occured while attempting to read number of users.{Style.RESET_ALL}")
+			else:
+				print(f"\tNumber of users logged into server: {Fore.YELLOW}{nu}{Style.RESET_ALL}")
 			
 		elif cmd.upper() == "SYNC":
 					

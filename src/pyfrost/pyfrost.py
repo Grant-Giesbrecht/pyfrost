@@ -356,23 +356,17 @@ class ShareData(Packable):
 		super().set_manifest()
 
 
-class GenCommand(Packable):
-	''' Represents a command sent from client to server. This can be packed as a JSON and
-	replaces the older system of sending individual words back and forth from client to
-	server.
-	'''
+class GenData(Packable):
+	''' Represents a packet of data sent between server and client. A GenData object is typically a response from the listener to the initiator, unless packaged into a more sophisticated child-class. '''
 	
-	def __init__(self, c:str="", data={}):
+	def __init__(self, data={}):
 		super().__init__()
-		
-		# Command type
-		self.command = c
 		
 		# Accompanying data
 		self.data = data
 		
 		# Metadata
-		self.metadata = {"created":str(datetime.datetime.now())}
+		self.metadata = {"created":str(datetime.datetime.now()), "error_str": ""}
 	
 	def has(self, key_list:list):
 		''' Verifies that the command has the following data fields.
@@ -397,15 +391,13 @@ class GenCommand(Packable):
 		
 		# Return 2 if extra keys present
 		return 2
-		
 	
 	def auto_format(self):
-		''' Auto-formats command '''
-		self.command = self.command.upper()
+		''' Only used in child class'''
+		pass
 	
 	def set_manifest(self):
 		
-		self.manifest.append("command")
 		self.manifest.append("data")
 		self.manifest.append("metadata")
 	
@@ -424,6 +416,52 @@ class GenCommand(Packable):
 		# Get dictionary
 		JD = json.loads(json_data.decode('utf-8'))
 		self.unpack(JD)
+
+	def validate_reply(self, key_list:list, log:LogPile, enforce_status:bool=True):
+		''' Performs some validation on GenData objects used as a reply. 
+		If you forget to check for STATUS it will automatically add it to the 
+		cehck list unless you set enforce_status to false.'''
+		
+		if enforce_status and ('STATUS' not in key_list):
+			key_list.append('STATUS')
+		
+		# Validate returned data
+		gdh = self.has(key_list)
+		if gdh < 0:
+			log.error("GenData missing fields!")
+			return False
+		elif gdh > 1:
+			log.warning("GenData contained unused fields.")
+		
+		# Check status (if enforced)
+		if enforce_status and not self.data['STATUS']:
+			es = self.metadata['error_str']
+			log.error(f"GenData returned with ERROR status - ({es}).")
+			return False
+		
+		return True
+	
+class GenCommand(GenData):
+	''' Represents a command sent from initiator to listener. This can be packed as a JSON and
+	replaces the older system of sending individual words back and forth from client to
+	server. Typically GenCommand is sent from a client to the server, however if a network is configured to have clients listening for commands from the server 
+	the server could send GenCommands to the client instead.
+	'''
+	
+	def __init__(self, cmd:str="", data={}):
+		super().__init__(data)
+		
+		# Save command
+		self.command = cmd
+	
+	def set_manifest(self):
+		super().set_manifest()
+		
+		self.manifest.append("command")
+		
+	def auto_format(self):
+		''' Auto-formats command '''
+		self.command = self.command.upper()
 
 class Message(Packable):
 	""" Object saved to distribution inbox to be passed along to other clients."""

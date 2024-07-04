@@ -22,6 +22,7 @@ else:
 	ip_address = "192.168.1.116"
 
 
+#TODO: Add example with GenCommand
 def custom_func(ca:ClientAgent, opt:ClientOptions, words:list) -> bool:
 	
 	# Get command string
