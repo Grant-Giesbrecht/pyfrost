@@ -66,7 +66,7 @@ class ClientAgent:
 		
 		self.notes = []
 		
-		self.sharedata = ShareData()
+		self.sharedata = ThreadSafeData()
 		
 		self.state = ClientAgent.CS_HAND
 	
@@ -683,7 +683,7 @@ class ClientAgent:
 		return self.send_command(cmd)
 	
 	def sync(self):
-		""" Updates local data from the server. Gets messages/notifications, ShareData, etc """
+		""" Updates local data from the server. Gets messages/notifications, ThreadSafeData, etc """
 		
 		# Check for valid state
 		if self.state == ClientAgent.CS_HAND or self.state == ClientAgent.CS_LOGIN:
@@ -713,7 +713,7 @@ class ClientAgent:
 			self.log.warning(f"Failed to populate ClientAgent from SyncData ({e})")
 			return
 		
-		#TODO: Can you sync ClientAgent state from ShareData state?
+		#TODO: Can you sync ClientAgent state from ThreadSafeData state?
 
 def autosync(ca:ClientAgent):
 	''' Automatically syncs data between the server and client. '''

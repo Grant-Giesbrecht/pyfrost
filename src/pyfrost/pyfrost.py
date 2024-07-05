@@ -348,7 +348,7 @@ class Packable(ABC):
 			setattr(self, mi, temp_list)
 				# self.obj_manifest[mi] = copy.deepcopy(temp_list)
 
-class ShareData():
+class ThreadSafeData():
 	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
 	management in a thread-safe manner. '''
 	
@@ -366,7 +366,7 @@ class ShareData():
 			
 			# Check if param already exists
 			if param_name in self._data:
-				# self.log.warning(f"Parameter '{param_name}' already exists in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeData object.")
 				return False
 			
 			# Initialize parameter
@@ -379,14 +379,14 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
 			# Add value to list
 			try:
 				self._data[param_name].append(val)
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return False
 		
 		return True
@@ -399,7 +399,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return None
 			
 			# Check index in range
@@ -411,7 +411,7 @@ class ShareData():
 			try:
 				return copy.deepcopy(self._data[param_name][idx])
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return None
 	
 	def read_attr(self, param_name:str, idx:int, attr:str):
@@ -422,7 +422,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return None
 			
 			# Check index in range
@@ -439,7 +439,7 @@ class ShareData():
 			try:
 				return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return None
 	
 	def set(self, param_name:str, idx:int, val):
@@ -449,7 +449,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
 			# Check index in range
@@ -461,7 +461,7 @@ class ShareData():
 			try:
 				self._data[param_name][idx] = val
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return False
 		
 		return True
@@ -473,7 +473,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
 			# Check index in range
@@ -490,7 +490,7 @@ class ShareData():
 			try:
 				self._data[param_name][idx].__dict__[attr] = val
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return False
 		
 		return True
@@ -502,7 +502,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
 			# Check index in range
@@ -514,7 +514,7 @@ class ShareData():
 			try:
 				del self._data[param_name][idx]
 			except Exception as e:
-				# self.log.warning(f"Failed to add value to ShareData object.", detail=f"{e}")
+				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
 				return False
 		
 		return True
@@ -530,7 +530,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return match_vals
 			
 			# Scan over all values
@@ -555,7 +555,7 @@ class ShareData():
 			
 			# Check param exists
 			if param_name not in self.data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ShareData object.")
+				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return []
 			
 			# Scan over all values
@@ -731,7 +731,7 @@ class SyncData(Packable):
 		
 		self.notes = [] # Notifications/messages for the user in unpacked form
 		
-		self.packed_sharedata = {} # ShareData object for client in PACKED form
+		self.packed_sharedata = {} # ThreadSafeData object for client in PACKED form
 		
 		# ---1. Finish writing this class
 		# ---2. Give it a better name?

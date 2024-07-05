@@ -150,7 +150,7 @@ class ServerAgent (threading.Thread):
 		
 		# These will point to a sharedata and mutex in the main 'sharedata' and 'sharedata_mutexes'
 		# lists. Use sharedata_mutex prior to modifying the sharedata object.
-		self.sharedata = ShareData()
+		self.sharedata = ThreadSafeData()
 		self.sharedata_mutex = None
 		
 		# The notes array contains any incoming notifications or messages. It will be modified
