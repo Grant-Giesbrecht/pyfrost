@@ -3,7 +3,7 @@
 
 from pyfrost.pf_server import *
 import time
-from pylogfile import *
+from pylogfile.base import *
 import logging
 import argparse
 

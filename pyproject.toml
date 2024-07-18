@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-	'pylogfile >= 0.2.1',
+	'pylogfile >= 0.3.0',
 	'jarnsaxa >= 0.0.0.dev0',
 	'rsa >= 4.9',
 	'pycryptodome >= 3.17',
