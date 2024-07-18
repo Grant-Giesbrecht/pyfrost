@@ -3,7 +3,7 @@ import threading
 
 from colorama import Fore, Style, Back
 
-from pyfrost.pyfrost import *
+from pylogfile.base import *
 
 import rsa
 import hashlib
