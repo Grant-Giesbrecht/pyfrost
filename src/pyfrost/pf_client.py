@@ -8,7 +8,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from pylogfile.base import *
-from pylogfile.base import *
+from pyfrost.base import *
 from typing import Callable
 from getpass import getpass
 

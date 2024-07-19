@@ -14,6 +14,8 @@ from Crypto.Util.Padding import pad, unpad
 from dataclasses import dataclass
 import time
 from typing import Callable
+from pyfrost.base import *
+
 
 # Initilize global variable - thread counter
 next_thread_id = 0 # This is NOT protected by a mutex and should only ever be modified or read from the main thread
@@ -1077,7 +1079,8 @@ def server_stat_thread_main():
 	
 	logging.info(f"{stat_id_str}Stat thread shutting down")
 
-def server_main(sock:socket, extension_function:Callable[[ServerAgent, GenCommand], None]):
+def server_main(sock:socket, extension_function_query:Callable[..., None]=None, extension_function_send:Callable[..., None]=None):
+	
 	global next_thread_id, server_opt
 	
 	# Create thread to print server stats periodically
@@ -1106,7 +1109,7 @@ def server_main(sock:socket, extension_function:Callable[[ServerAgent, GenComman
 		logging.info(f"{id_str}Accepted client connected on address <{client_addr}>")
 		
 		# Create server agent class
-		sa = ServerAgent(client_socket, next_thread_id, new_log, extension_function)
+		sa = ServerAgent(client_socket, next_thread_id, new_log, extension_function_query=extension_function_query, extension_function_send=extension_function_send)
 		sa.enforce_password_rules = False # Allow weak passwords
 		
 		 # Update thread_id
