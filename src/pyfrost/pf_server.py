@@ -551,6 +551,7 @@ class ServerAgent (threading.Thread):
 			# See if command is recognized in user extension function
 			if self.query_func is not None:
 				gdata = self.query_func(self, gc)
+				return gdata
 			else:
 				logging.warning(f"Failed to recognize generalized command: {gc.command}.")
 				err_gd.metadata['error_str'] = "Failed to recognize command."
@@ -747,6 +748,13 @@ class ServerAgent (threading.Thread):
 				# Execute command
 				gdata = self.execute_querygc(gc)
 				
+				# Return value from execute_querygc should be a GenData, however, here we check for None
+				# because this function's return value can depend on the end user (who can provide extension
+				# functions), so we check for None in case they forgot to return their GenData.
+				if gdata is None:
+					gdata = GenData({"STATUS": False})
+					gdata.metadata['error_str'] = "execute_querygc returned None. This likely means the user's query_func returned None incorrectly!"
+					
 				# Send gdata on to client. Even if an error occured, this gdata will
 				# contain the error message for the client to see.
 				self.send(gdata.to_utf8())
