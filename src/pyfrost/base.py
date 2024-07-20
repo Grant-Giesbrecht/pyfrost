@@ -584,7 +584,7 @@ class ThreadSafeList():
 		self._data = []
 		self.mtx = threading.Lock()
 	
-	def append(self, param_name:str, val):
+	def append(self, val):
 		''' Adds an element to the specified list. '''
 		
 		# Add value to list
@@ -595,7 +595,7 @@ class ThreadSafeList():
 		
 		return True
 	
-	def len(self, param_name:str):
+	def len(self):
 		''' Returns the length of the specified parameter. '''
 		
 		# Return length of parameter

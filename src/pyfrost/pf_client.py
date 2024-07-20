@@ -66,7 +66,7 @@ class ClientAgent:
 		
 		self.notes = []
 		
-		self.sharedata = ThreadSafeData()
+		self.sharedata = ThreadSafeDict()
 		
 		self.state = ClientAgent.CS_HAND
 	
