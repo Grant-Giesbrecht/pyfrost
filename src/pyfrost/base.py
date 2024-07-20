@@ -601,7 +601,7 @@ class GenData(Packable):
 		# Scan over each provided key
 		for k in key_list:
 			if k not in dkl:
-				print(f"Missing {k}")
+				print(f"Missing {k} (has: {dkl})")
 				return -1
 		
 		# Return 1 for exact match
@@ -636,7 +636,7 @@ class GenData(Packable):
 		JD = json.loads(json_data.decode('utf-8'))
 		self.unpack(JD)
 
-	def validate_reply(self, key_list:list, log:LogPile, enforce_status:bool=False):
+	def validate_reply(self, key_list:list, log:LogPile, enforce_status:bool=True):
 		''' Performs some validation on GenData objects used as a reply. 
 		If you forget to check for STATUS it will automatically add it to the 
 		cehck list unless you set enforce_status to false.'''
@@ -657,6 +657,20 @@ class GenData(Packable):
 			es = self.metadata['error_str']
 			log.error(f"GenData returned with ERROR status - ({es}).")
 			return False
+		
+		return True
+	
+	def validate_command(self, key_list:list, log:LogPile):
+		''' Performs some validation on GenData objects used as a command. 
+		For commands, it ONLY checks that the specified keys are present.'''
+		
+		# Validate returned data
+		gdh = self.has(key_list)
+		if gdh < 0:
+			log.error("GenData missing fields!")
+			return False
+		elif gdh > 1:
+			log.warning("GenData contained unused fields.")
 		
 		return True
 	
