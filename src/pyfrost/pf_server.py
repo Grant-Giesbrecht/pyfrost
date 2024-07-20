@@ -160,6 +160,10 @@ class ServerAgent (threading.Thread):
 		self.notes = []
 		self.notes_mtx = threading.Lock()
 		
+		# This is a dictionary that the end-user application can modify. This way, using the initialization
+		# function option provided in server_main(), data can be stored inside the SA object.
+		self.app_data = {}
+		
 	def set_auth_user(self, user:str):
 		"""Accepts the username of an authorized user and configures the object to reflect that user."""
 		global user_directory, directory_mutex
@@ -1092,7 +1096,27 @@ def server_stat_thread_main():
 	
 	logging.info(f"{stat_id_str}Stat thread shutting down")
 
-def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None):
+def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None):
+	''' Main loop that spawns new threads, each with a new ServerAgent, to handle incoming client
+	connections. Socket is the socket new clients will connect to. Functions can be provided to add
+	GenCOmmand handlers for the server, or to initialize the ServerAgents per the users needs (such as
+	adding fields to the app_data dict).
+	
+	query_func: Signature (sa:ServerAgent, gc:GenCommand) -> Bool (or None if command not found)
+		* Must return a bool for execution success status. Return None if command not recognized.
+		* Handles all 'send' commands (ie. those without a GenData returned to the client).
+	
+	send_func: Signature (sa:ServerAgent, gc:GenCommand) -> GenData (or None if command not found)
+		* Must return a GenData (with a status field). Set status field to false if execution
+		  failed or encountered an error. Place any error messages in the 'metadata' dict, under
+		  the key 'error_str'.
+		* Handles all 'query' commands (ie. those which expect a GenData returned to the client).
+	
+	sa_init_func: Signature (sa:ServerAgent) -> ServerAgent
+		* Modifies the provided ServerAgent and returns it. 
+		* Can be used to initialize a ServerAgent per the users needs prior to being started in 
+		  a new thread.
+	 '''
 	
 	global next_thread_id, server_opt
 	
@@ -1124,6 +1148,10 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		# Create server agent class
 		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func)
 		sa.enforce_password_rules = False # Allow weak passwords
+		
+		# Call initialization function if provided
+		if sa_init_func is not None:
+			sa = sa_init_func(sa)
 		
 		 # Update thread_id
 		next_thread_id += 1
