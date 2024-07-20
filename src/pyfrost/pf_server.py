@@ -152,7 +152,7 @@ class ServerAgent (threading.Thread):
 		
 		# These will point to a sharedata and mutex in the main 'sharedata' and 'sharedata_mutexes'
 		# lists. Use sharedata_mutex prior to modifying the sharedata object.
-		self.sharedata = ThreadSafeData()
+		self.sharedata = ThreadSafeDict()
 		self.sharedata_mutex = None
 		
 		# The notes array contains any incoming notifications or messages. It will be modified
@@ -995,7 +995,7 @@ def distribution_thread_main():
 	dist_id_str = f"{Fore.LIGHTMAGENTA_EX}[T-ID: {Fore.WHITE}DIST{Fore.LIGHTMAGENTA_EX}]{standard_color} "
 	
 	# Main loop
-	while not server_opt.kill_distribution_thread:
+	while not server_opt.kill_distribution_thread: #TODO: This should be mutex protected!
 			
 		# Acquire the inbox
 		with distribution_mutex:
@@ -1024,7 +1024,7 @@ def distribution_thread_main():
 							# Get user info
 							de_list = user_directory[msg.recipient]
 							
-							# Scan over all logged-in clients
+							# Scan over all logged-in clients (for specified user)
 							for de in de_list:
 								# logging.debug(f"{dist_id_str}Sending message to {msg.recipient}. Mutex:{de.note_mutex}, ListObj:{de.note_list}")
 							

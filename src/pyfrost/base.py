@@ -348,7 +348,8 @@ class Packable(ABC):
 			setattr(self, mi, temp_list)
 				# self.obj_manifest[mi] = copy.deepcopy(temp_list)
 
-class ThreadSafeData():
+# TODO: Should _data be changed to a list and make it so multiple params cannot be saved?
+class ThreadSafeDict():
 	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
 	management in a thread-safe manner. NOTE: The mutex of each instance MUST be acquired before
 	calling the functions of the instance!'''
@@ -365,7 +366,7 @@ class ThreadSafeData():
 		
 		# Check if param already exists
 		if param_name in self._data:
-			# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeDict object.")
 			return False
 		
 		# Initialize parameter
@@ -376,14 +377,14 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return False
 		
 		# Add value to list
 		try:
 			self._data[param_name].append(val)
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return False
 		
 		return True
@@ -393,7 +394,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			k = self._data.keys()
 			print(f"{param_name} not in {k}")
 			return None
@@ -407,7 +408,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return None
 		
 		# Check index in range
@@ -419,7 +420,7 @@ class ThreadSafeData():
 		try:
 			return copy.deepcopy(self._data[param_name][idx])
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return None
 	
 	def read_attr(self, param_name:str, idx:int, attr:str):
@@ -428,7 +429,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return None
 		
 		# Check index in range
@@ -445,7 +446,7 @@ class ThreadSafeData():
 		try:
 			return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return None
 	
 	def set(self, param_name:str, idx:int, val):
@@ -453,7 +454,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return False
 		
 		# Check index in range
@@ -465,7 +466,7 @@ class ThreadSafeData():
 		try:
 			self._data[param_name][idx] = val
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return False
 		
 		return True
@@ -475,7 +476,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return False
 		
 		# Check index in range
@@ -492,7 +493,7 @@ class ThreadSafeData():
 		try:
 			self._data[param_name][idx].__dict__[attr] = val
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return False
 		
 		return True
@@ -502,7 +503,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return False
 		
 		# Check index in range
@@ -514,7 +515,7 @@ class ThreadSafeData():
 		try:
 			del self._data[param_name][idx]
 		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
 			return False
 		
 		return True
@@ -528,7 +529,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return match_vals
 		
 		# Scan over all values
@@ -551,7 +552,7 @@ class ThreadSafeData():
 		
 		# Check param exists
 		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
 			return []
 		
 		# Scan over all values
@@ -742,7 +743,7 @@ class SyncData(Packable):
 		
 		self.notes = [] # Notifications/messages for the user in unpacked form
 		
-		self.packed_sharedata = {} # ThreadSafeData object for client in PACKED form
+		self.packed_sharedata = {} # ThreadSafeDict object for client in PACKED form
 		
 		# ---1. Finish writing this class
 		# ---2. Give it a better name?
