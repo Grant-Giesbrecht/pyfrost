@@ -90,7 +90,8 @@ class ClientAgent:
 		self.handshake()
 	
 	def send_command(self, c:GenCommand):
-		''' Sends a command object to the server. Receives no response. '''
+		''' Sends a command object to the server. Receives no response data, only
+		pass/fail status. Returns true or false for pass/fail status. '''
 		
 		# DOESNT CHECK FOR STATE _ ALL VALID
 		# # Check for valid state

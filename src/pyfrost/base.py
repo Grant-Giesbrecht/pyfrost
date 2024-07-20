@@ -378,7 +378,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
@@ -398,7 +398,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return None
 			
@@ -421,7 +421,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return None
 			
@@ -448,7 +448,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
@@ -472,7 +472,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
@@ -501,7 +501,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return False
 			
@@ -529,7 +529,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return match_vals
 			
@@ -554,7 +554,7 @@ class ThreadSafeData():
 		with self.mtx: # Acquire mutex
 			
 			# Check param exists
-			if param_name not in self.data:
+			if param_name not in self._data:
 				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
 				return []
 			
@@ -601,6 +601,7 @@ class GenData(Packable):
 		# Scan over each provided key
 		for k in key_list:
 			if k not in dkl:
+				print(f"Missing {k}")
 				return -1
 		
 		# Return 1 for exact match
@@ -635,7 +636,7 @@ class GenData(Packable):
 		JD = json.loads(json_data.decode('utf-8'))
 		self.unpack(JD)
 
-	def validate_reply(self, key_list:list, log:LogPile, enforce_status:bool=True):
+	def validate_reply(self, key_list:list, log:LogPile, enforce_status:bool=False):
 		''' Performs some validation on GenData objects used as a reply. 
 		If you forget to check for STATUS it will automatically add it to the 
 		cehck list unless you set enforce_status to false.'''

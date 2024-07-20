@@ -105,7 +105,7 @@ class ServerAgent (threading.Thread):
 	TS_MAIN = 3 # Client authorized, at main loop
 	TS_EXIT = 0 # Exit main loop, close thread
 	
-	def __init__(self, sock, thread_id, log:LogPile, extension_function_query:Callable[..., None]=None, extension_function_send:Callable[..., None]=None):
+	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None):
 		
 		super().__init__()
 		
@@ -120,8 +120,8 @@ class ServerAgent (threading.Thread):
 		
 		# Controls if it enforces minimum password requirement rules.
 		self.enforce_password_rules = True
-		self.extension_function_send = extension_function_send
-		self.extension_function_query = extension_function_query
+		self.send_func = send_func # Returns None if command is not recognized, otherwise return True or False for execution success status.
+		self.query_func = query_func # Return NOne if not recognized, otehrwise return a GenData object
 		
 		# Socket object from connecting to client program
 		self.sock = sock
@@ -500,15 +500,20 @@ class ServerAgent (threading.Thread):
 		else:
 			
 			# See if command is recognized in user extension function
-			if self.extension_function_send is not None:
-				found_cmd = self.extension_function_send(self, gc)
+			if self.send_func is not None:
+				found_cmd = self.send_func(self, gc)
 			else:
-				found_cmd = False
+				found_cmd = None
 			
 			# Command was not found
-			if not found_cmd:
+			if found_cmd is None:
 				logging.warning(f"Failed to recognize generalized command: {gc.command}.")
 				return False
+			else:
+				if found_cmd:
+					logging.debug(f"Successfully executed generalized command: {gc.command}.")
+				else:
+					logging.warning(f"Failed to execute generalized command: {gc.command}.")
 		
 		return True
 	
@@ -544,8 +549,8 @@ class ServerAgent (threading.Thread):
 		else:
 			
 			# See if command is recognized in user extension function
-			if self.extension_function_query is not None:
-				gdata = self.extension_function_query(self, gc)
+			if self.query_func is not None:
+				gdata = self.query_func(self, gc)
 			else:
 				logging.warning(f"Failed to recognize generalized command: {gc.command}.")
 				err_gd.metadata['error_str'] = "Failed to recognize command."
@@ -1079,7 +1084,7 @@ def server_stat_thread_main():
 	
 	logging.info(f"{stat_id_str}Stat thread shutting down")
 
-def server_main(sock:socket, extension_function_query:Callable[..., None]=None, extension_function_send:Callable[..., None]=None):
+def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None):
 	
 	global next_thread_id, server_opt
 	
@@ -1109,7 +1114,7 @@ def server_main(sock:socket, extension_function_query:Callable[..., None]=None, 
 		logging.info(f"{id_str}Accepted client connected on address <{client_addr}>")
 		
 		# Create server agent class
-		sa = ServerAgent(client_socket, next_thread_id, new_log, extension_function_query=extension_function_query, extension_function_send=extension_function_send)
+		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func)
 		sa.enforce_password_rules = False # Allow weak passwords
 		
 		 # Update thread_id
