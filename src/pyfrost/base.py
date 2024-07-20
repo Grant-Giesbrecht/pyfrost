@@ -350,7 +350,8 @@ class Packable(ABC):
 
 class ThreadSafeData():
 	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
-	management in a thread-safe manner. '''
+	management in a thread-safe manner. NOTE: The mutex of each instance MUST be acquired before
+	calling the functions of the instance!'''
 	
 	def __init__(self):
 		super().__init__()
@@ -362,160 +363,159 @@ class ThreadSafeData():
 	def add_param(self, param_name:str) -> bool:
 		''' Adds a list under the parameter 'param_name'. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check if param already exists
-			if param_name in self._data:
-				# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeData object.")
-				return False
-			
-			# Initialize parameter
-			self._data['param_name'] = []
+		# Check if param already exists
+		if param_name in self._data:
+			# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeData object.")
+			return False
+		
+		# Initialize parameter
+		self._data[param_name] = []
 	
 	def append(self, param_name:str, val):
 		''' Adds an element to the specified list. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return False
-			
-			# Add value to list
-			try:
-				self._data[param_name].append(val)
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return False
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return False
+		
+		# Add value to list
+		try:
+			self._data[param_name].append(val)
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return False
 		
 		return True
 	
+	def get_param_len(self, param_name:str):
+		''' Returns the length of the specified parameter. '''
+		
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			k = self._data.keys()
+			print(f"{param_name} not in {k}")
+			return None
+		
+		# Return length of parameter
+		return len(self._data[param_name])
+		
 	def read(self, param_name:str, idx:int):
 		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
 		 the object so the return value is entirely thread safe. Returns none on error. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return None
-			
-			# Check index in range
-			if idx >= len(self._data[param_name]):
-				# self.log.warning(f"Index out of bounds.")
-				return None
-			
-			# REturn copy of value
-			try:
-				return copy.deepcopy(self._data[param_name][idx])
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return None
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return None
+		
+		# Check index in range
+		if idx >= len(self._data[param_name]):
+			# self.log.warning(f"Index out of bounds.")
+			return None
+		
+		# REturn copy of value
+		try:
+			return copy.deepcopy(self._data[param_name][idx])
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return None
 	
 	def read_attr(self, param_name:str, idx:int, attr:str):
 		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
 		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return None
-			
-			# Check index in range
-			if idx >= len(self._data[param_name]):
-				# self.log.warning(f"Index out of bounds.")
-				return None
-			
-			# Check attribute exists
-			if attr not in self._data[param_name][idx].__dict__:
-				# self.log.warning(f"Missing attribute.")
-				return None
-			
-			# REturn copy of value
-			try:
-				return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return None
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return None
+		
+		# Check index in range
+		if idx >= len(self._data[param_name]):
+			# self.log.warning(f"Index out of bounds.")
+			return None
+		
+		# Check attribute exists
+		if attr not in self._data[param_name][idx].__dict__:
+			# self.log.warning(f"Missing attribute.")
+			return None
+		
+		# REturn copy of value
+		try:
+			return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return None
 	
 	def set(self, param_name:str, idx:int, val):
 		''' Sets a value of the specified parameter at the specified index. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return False
-			
-			# Check index in range
-			if idx >= len(self._data[param_name]):
-				# self.log.warning(f"Index out of bounds.")
-				return False
-			
-			# REturn copy of value
-			try:
-				self._data[param_name][idx] = val
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return False
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return False
+		
+		# Check index in range
+		if idx >= len(self._data[param_name]):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# REturn copy of value
+		try:
+			self._data[param_name][idx] = val
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return False
 		
 		return True
 	
 	def set_attr(self, param_name:str, idx:int, attr:str, val):
 		''' Sets a value of the specified parameter and attribute at the specified index. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return False
-			
-			# Check index in range
-			if idx >= len(self._data[param_name]):
-				# self.log.warning(f"Index out of bounds.")
-				return False
-			
-			# Check attribute exists
-			if attr not in self._data[param_name][idx].__dict__:
-				# self.log.warning(f"Missing attribute.")
-				return False
-			
-			# Return copy of value
-			try:
-				self._data[param_name][idx].__dict__[attr] = val
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return False
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return False
+		
+		# Check index in range
+		if idx >= len(self._data[param_name]):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# Check attribute exists
+		if attr not in self._data[param_name][idx].__dict__:
+			# self.log.warning(f"Missing attribute.")
+			return False
+		
+		# Return copy of value
+		try:
+			self._data[param_name][idx].__dict__[attr] = val
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return False
 		
 		return True
 	
 	def remove(self, param_name:str, idx:int) -> bool:
 		''' Deletes the value from the specified index. '''
 		
-		with self.mtx: # Acquire mutex
-			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return False
-			
-			# Check index in range
-			if idx >= len(self._data[param_name]):
-				# self.log.warning(f"Index out of bounds.")
-				return False
-			
-			# Return copy of value
-			try:
-				del self._data[param_name][idx]
-			except Exception as e:
-				# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
-				return False
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return False
+		
+		# Check index in range
+		if idx >= len(self._data[param_name]):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# Return copy of value
+		try:
+			del self._data[param_name][idx]
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeData object.", detail=f"{e}")
+			return False
 		
 		return True
 	
@@ -526,21 +526,19 @@ class ThreadSafeData():
 		
 		match_vals = []
 		
-		with self.mtx: # Acquire mutex
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return match_vals
+		
+		# Scan over all values
+		for idx, parval in enumerate(self._data[param_name]):
 			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
-				return match_vals
-			
-			# Scan over all values
-			for idx, parval in enumerate(self._data[param_name]):
-				
-				# Check for match
-				if parval == val:
-					match_vals.append(idx)
-					if end_on_find:
-						break
+			# Check for match
+			if parval == val:
+				match_vals.append(idx)
+				if end_on_find:
+					break
 		
 		return match_vals
 	
@@ -551,26 +549,24 @@ class ThreadSafeData():
 		
 		match_vals = []
 		
-		with self.mtx: # Acquire mutex
+		# Check param exists
+		if param_name not in self._data:
+			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			return []
+		
+		# Scan over all values
+		for idx, parval in enumerate(self._data[param_name]):
 			
-			# Check param exists
-			if param_name not in self._data:
-				# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeData object.")
+			# Check attribute exists
+			if attr not in parval.__dict__:
+				# self.log.warning(f"Missing attribute.")
 				return []
 			
-			# Scan over all values
-			for idx, parval in enumerate(self._data[param_name]):
-				
-				# Check attribute exists
-				if attr not in parval.__dict__:
-					# self.log.warning(f"Missing attribute.")
-					return []
-				
-				# Check for match
-				if parval.__dict__[attr] == val:
-					match_vals.append(idx)
-					if end_on_find:
-						break
+			# Check for match
+			if parval.__dict__[attr] == val:
+				match_vals.append(idx)
+				if end_on_find:
+					break
 		
 		return match_vals
 
