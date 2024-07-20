@@ -348,7 +348,7 @@ class Packable(ABC):
 			setattr(self, mi, temp_list)
 				# self.obj_manifest[mi] = copy.deepcopy(temp_list)
 
-# TODO: Should _data be changed to a list and make it so multiple params cannot be saved?
+# TODO: Should this be deleted in favor of ThreadSafeList
 class ThreadSafeDict():
 	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
 	management in a thread-safe manner. NOTE: The mutex of each instance MUST be acquired before
@@ -570,6 +570,171 @@ class ThreadSafeDict():
 					break
 		
 		return match_vals
+
+class ThreadSafeList():
+	''' Tracks a list of any one data type. Includes a mutex for easy tracking.
+	
+	NOTE: The mutex of each instance MUST be acquired before calling the
+	functions of the instance!'''
+	
+	def __init__(self):
+		super().__init__()
+		
+		# Data list. It should not be directly accessed because it needs to be modified and read only via mutex control
+		self._data = []
+		self.mtx = threading.Lock()
+	
+	def append(self, param_name:str, val):
+		''' Adds an element to the specified list. '''
+		
+		# Add value to list
+		try:
+			self._data.append(val)
+		except Exception as e:
+			return False
+		
+		return True
+	
+	def len(self, param_name:str):
+		''' Returns the length of the specified parameter. '''
+		
+		# Return length of parameter
+		return len(self._data)
+		
+	def read(self, idx:int):
+		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
+		 the object so the return value is entirely thread safe. Returns none on error. '''
+		
+		# Check index in range
+		if idx >= len(self._data):
+			# self.log.warning(f"Index out of bounds.")
+			return None
+		
+		# REturn copy of value
+		try:
+			return copy.deepcopy(self._data[idx])
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+			return None
+	
+	def read_attr(self, idx:int, attr:str):
+		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
+		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
+		
+		# Check index in range
+		if idx >= len(self._data):
+			# self.log.warning(f"Index out of bounds.")
+			return None
+		
+		# Check attribute exists
+		if attr not in self._data[idx].__dict__:
+			# self.log.warning(f"Missing attribute.")
+			return None
+		
+		# REturn copy of value
+		try:
+			return copy.deepcopy(self._data[idx].__dict__[attr])
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+			return None
+	
+	def set(self, idx:int, val):
+		''' Sets a value of the specified parameter at the specified index. '''
+		
+		# Check index in range
+		if idx >= len(self._data):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# REturn copy of value
+		try:
+			self._data[idx] = val
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+			return False
+		
+		return True
+	
+	def set_attr(self, idx:int, attr:str, val):
+		''' Sets a value of the specified parameter and attribute at the specified index. '''
+		
+		# Check index in range
+		if idx >= len(self._data):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# Check attribute exists
+		if attr not in self._data[idx].__dict__:
+			# self.log.warning(f"Missing attribute.")
+			return False
+		
+		# Return copy of value
+		try:
+			self._data[idx].__dict__[attr] = val
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+			return False
+		
+		return True
+	
+	def remove(self, idx:int) -> bool:
+		''' Deletes the value from the specified index. '''
+		
+		# Check index in range
+		if idx >= len(self._data):
+			# self.log.warning(f"Index out of bounds.")
+			return False
+		
+		# Return copy of value
+		try:
+			del self._data[idx]
+		except Exception as e:
+			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+			return False
+		
+		return True
+	
+	def find(self, val, end_on_find:bool=True) -> list:
+		''' Checks each index of the specified parameter and looks for the provided value. Returns a
+		a list of every index that matches. Returns only the first index if end_on_find is set to true.
+		Returns an empty list if no matches occur.'''
+		
+		match_vals = []
+		
+		# Scan over all values
+		for idx, parval in enumerate(self._data):
+			
+			# Check for match
+			if parval == val:
+				match_vals.append(idx)
+				if end_on_find:
+					break
+		
+		return match_vals
+	
+	def find_attr(self, attr:str, val, end_on_find:bool=True) -> list:
+		''' Checks each index of the specified parameter and looks for the specified attribute
+		to match the provided value.  Returns a	a list of every index that matches. Returns 
+		only the first index if end_on_find is set to true.	Returns an empty list if no matches occur.'''
+		
+		match_vals = []
+		
+		# Scan over all values
+		for idx, parval in enumerate(self._data):
+			
+			# Check attribute exists
+			if attr not in parval.__dict__:
+				# self.log.warning(f"Missing attribute.")
+				return []
+			
+			# Check for match
+			if parval.__dict__[attr] == val:
+				match_vals.append(idx)
+				if end_on_find:
+					break
+		
+		return match_vals
+
 
 class GenData(Packable):
 	''' Represents a packet of data sent between server and client. A GenData object is typically a response from the listener to the initiator, unless packaged into a more sophisticated child-class. '''
