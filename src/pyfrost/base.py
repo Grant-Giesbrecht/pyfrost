@@ -644,6 +644,12 @@ class GenData(Packable):
 		if enforce_status and ('STATUS' not in key_list):
 			key_list.append('STATUS')
 		
+		# Check status (if enforced)
+		if enforce_status and not self.data['STATUS']:
+			es = self.metadata['error_str']
+			log.error(f"GenData returned with ERROR status - ({es}).")
+			return False
+		
 		# Validate returned data
 		gdh = self.has(key_list)
 		if gdh < 0:
@@ -651,12 +657,6 @@ class GenData(Packable):
 			return False
 		elif gdh > 1:
 			log.warning("GenData contained unused fields.")
-		
-		# Check status (if enforced)
-		if enforce_status and not self.data['STATUS']:
-			es = self.metadata['error_str']
-			log.error(f"GenData returned with ERROR status - ({es}).")
-			return False
 		
 		return True
 	
