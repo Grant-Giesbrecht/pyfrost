@@ -27,3 +27,7 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/Grant-Giesbrecht/pyfrost"
 Issues = "https://github.com/Grant-Giesbrecht/pyfrost/issues"
+
+[project.scripts]
+pyfrost-init-db = "pyfrost.scripts.pyfrost_init_db:main"
+pyfrost-view-db = "pyfrost.scripts.pyfrost_view_db:main"
