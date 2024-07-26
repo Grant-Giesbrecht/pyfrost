@@ -99,6 +99,8 @@ class ClientAgent:
 		# 	logging.warning("Cannot sync prior to login.")
 		# 	return False
 		
+		self.log.debug(f"Sending GenCommand: {c.command}", detail=f"Command data: {c.data}")
+		
 		# Prepare server for generalized command
 		if not self.query("SENDGC"):
 			return False
@@ -129,6 +131,8 @@ class ClientAgent:
 		# if self.state == ClientAgent.CS_GAME or self.state == ClientAgent.CS_LOGIN:
 		# 	logging.warning("Cannot sync prior to login.")
 		# 	return False
+		
+		self.log.debug(f"Querying GenCommand: {c.command}", detail=f"Command data: {c.data}")
 		
 		# Prepare server for generalized command
 		if not self.query("QRYGC"):
@@ -176,6 +180,8 @@ class ClientAgent:
 		
 		Uses AES encryption standard.
 		"""
+		
+		self.log.debug(f"SEND(): Sending '{x}'")
 		
 		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
 		

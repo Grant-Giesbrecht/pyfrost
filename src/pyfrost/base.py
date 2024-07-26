@@ -763,7 +763,7 @@ class GenData(Packable):
 		# Scan over each provided key
 		for k in key_list:
 			if k not in dkl:
-				print(f"Missing {k} (has: {dkl})")
+				print(f"Missing {k} (has: {dkl})") #TODO: Change to log somehow
 				return -1
 		
 		# Return 1 for exact match

@@ -203,6 +203,8 @@ class ServerAgent (threading.Thread):
 		Returns pass/fail status.
 		"""
 		
+		self.log.debug(f"SEND(): Sending '{x}'")
+		
 		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
 		
 		# Automatically encode strings
