@@ -132,7 +132,8 @@ class ClientAgent:
 		
 		# Prepare server for generalized command
 		if not self.query("QRYGC"):
-			return False
+			logging.warning(f"Failed to send QRYGC.")
+			return None
 		if self.reply != "ACK":
 			logging.warning(f"Did not receive acknowledgement for QRYGC from server. Connection is likely broken! ({self.err()})")
 			return False

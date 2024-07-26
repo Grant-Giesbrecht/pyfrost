@@ -829,10 +829,10 @@ class GenData(Packable):
 		# Validate returned data
 		gdh = self.has(key_list)
 		if gdh < 0:
-			log.error("GenData missing fields!")
+			log.error("GenCommand missing fields!")
 			return False
 		elif gdh > 1:
-			log.warning("GenData contained unused fields.")
+			log.warning("GenCommand contained unused fields.")
 		
 		return True
 	
