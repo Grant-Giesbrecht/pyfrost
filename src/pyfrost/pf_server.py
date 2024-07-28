@@ -227,7 +227,7 @@ class ServerAgent (threading.Thread):
 		
 		# Try to receive encrypted message
 		try:
-			rv = unpad(cipher.decrypt(self.sock.recv(PACKET_SIZE)), AES.block_size)
+			rv = unpad(cipher.decrypt(self.sock.recv(PACKET_SIZE)), AES.block_size) #TODO: Make this work with messages bigger than a packet
 
 		except socket.error as e:
 			self.log.error(f"{self.id_str}Failed to receive data from client. ({str(e)}). Closing connection.")

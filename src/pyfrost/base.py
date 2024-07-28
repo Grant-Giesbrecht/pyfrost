@@ -25,7 +25,7 @@ quiet_color = Fore.LIGHTBLACK_EX
 logging.basicConfig(format=f'{prime_color}%(levelname)s:{standard_color} %(message)s{quiet_color} | %(asctime)s{Style.RESET_ALL}', level=LOG_LEVEL)
 
 #TODO: Make it able to read over multiple packets
-PACKET_SIZE = 16384
+PACKET_SIZE = 1048576
 AES_KEY_SIZE = 32
 SOCKET_TIMEOUT = 15 # Time (sec) between loop restarts if no new client
 SERVER_STAT_PRINT = 5 # Time (sec) between server stat console print
