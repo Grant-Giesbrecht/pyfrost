@@ -191,10 +191,24 @@ class ClientAgent:
 				x = x.encode()
 		elif encode_rule == ENC_TRUE:
 			x = x.encode()
-
-		# Try to send encrypted message
+		
+		# Encrypt data - produce primary data block
+		primary_data_block = cipher.encrypt(pad(x, AES.block_size))
+		
+		# Create length of primary data block specifier block
+		pdb_len = len(primary_data_block) # Get length of primary block
+		pdb_len_bytes_needed = (pdb_len.bit_length() + 7) // 8 # Get how many bytes needed to represent that number
+		pdb_len_block = pdb_len.to_bytes(pdb_len_bytes_needed, 'big', signed=False) # Convert to bytes
+		
+		# Create initial byte with length of primary block length specifier
+		plb_len = len(pdb_len_block) # Get length of block (should be same as pdb_len_bytes_needed)
+		init_byte = plb_len.to_bytes(1, 'big', signed=False) # Create initial byte
+		
+		# Try to send encrypted message - primary data block
 		try:
-			self.sock.send(cipher.encrypt(pad(x, AES.block_size)))
+			self.sock.send(init_byte)
+			self.sock.send(pdb_len_block)
+			self.sock.send(primary_data_block)
 		except socket.error as e:
 			self.log.error(f"Failed to send data to server. Closing Connection. ({str(e)})")
 			
@@ -225,9 +239,52 @@ class ClientAgent:
 		
 		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
 		
+		# Loop until entire packet has been received
+		data_raw = bytearray()
+		loop_count = 0
+		len_block_len = None
+		primary_len = None
+		while True:
+			
+			loop_count += 1
+			self.log.info(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
+			
+			# Receive data and add to packet
+			data_raw += self.sock.recv(PACKET_SIZE) 
+			self.log.info(f"recv: received data from socket. len(data_raw)=>{len(data_raw)}<", detail=f"data={data_raw}")
+			
+			# Abort if data too short
+			if len(data_raw) < 3:
+				continue
+			
+			# Get length of length-block
+			len_block_len = int.from_bytes(data_raw[0:1], 'big', signed=False)
+			
+			# Abort if data too short to read length-block
+			if len(data_raw) < 1+len_block_len:
+				continue
+			
+			# Get length-block
+			primary_len = int.from_bytes(data_raw[1:1+len_block_len], 'big', signed=False)
+			
+			# Get primary block
+			if len(data_raw) == 1+len_block_len+primary_len:
+				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
+				break
+			elif len(data_raw) > 1+len_block_len+primary_len:
+				self.log.warning(f"")
+				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
+				break
+			else:
+				continue
+		self.log.info("Completed read")
+		
+		if loop_count > 1:
+			self.log.info(f"Data was split over multiple ({loop_count}) reads.")
+		
 		# Try to receive encrypted message
 		try:
-			rv = unpad(cipher.decrypt(self.sock.recv(PACKET_SIZE)), AES.block_size)
+			rv = unpad(cipher.decrypt(data_block), AES.block_size)
 		except socket.error as e:
 			self.log.error(f"Failed to receive data from server. Closing connection.({str(e)})")
 			

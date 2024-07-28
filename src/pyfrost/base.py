@@ -24,8 +24,11 @@ quiet_color = Fore.LIGHTBLACK_EX
 # logging.basicConfig(stream=sys.stdout, format='%(asctime)s - %(message)s', level=logging.INFO)
 logging.basicConfig(format=f'{prime_color}%(levelname)s:{standard_color} %(message)s{quiet_color} | %(asctime)s{Style.RESET_ALL}', level=LOG_LEVEL)
 
-#TODO: Make it able to read over multiple packets
-PACKET_SIZE = 1048576
+# The plain-text and RSA data transfers must still fit in one packet, so don't make
+# the packet size too small. AES transfers can send over any number of packets though
+# due to declaring the packet size before sending the encrypted data.
+PACKET_SIZE = 16384
+
 AES_KEY_SIZE = 32
 SOCKET_TIMEOUT = 15 # Time (sec) between loop restarts if no new client
 SERVER_STAT_PRINT = 5 # Time (sec) between server stat console print
