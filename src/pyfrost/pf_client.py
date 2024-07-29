@@ -247,11 +247,10 @@ class ClientAgent:
 		while True:
 			
 			loop_count += 1
-			self.log.info(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
+			self.log.lowdebug(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
 			
 			# Receive data and add to packet
 			data_raw += self.sock.recv(PACKET_SIZE) 
-			self.log.info(f"recv: received data from socket. len(data_raw)=>{len(data_raw)}<", detail=f"data={data_raw}")
 			
 			# Abort if data too short
 			if len(data_raw) < 3:
@@ -272,15 +271,15 @@ class ClientAgent:
 				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
 				break
 			elif len(data_raw) > 1+len_block_len+primary_len:
-				self.log.warning(f"")
+				self.log.warning(f"recv() received more bytes than were declared in the packet header. This is likely indicative of a low-level error in pyfrost.")
 				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
 				break
 			else:
 				continue
-		self.log.info("Completed read")
+		self.log.lowdebug("Completed read")
 		
 		if loop_count > 1:
-			self.log.info(f"Data was split over multiple ({loop_count}) reads.")
+			self.log.lowdebug(f"Data was split over multiple ({loop_count}) reads.")
 		
 		# Try to receive encrypted message
 		try:

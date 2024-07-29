@@ -203,7 +203,8 @@ class ServerAgent (threading.Thread):
 		Returns pass/fail status.
 		"""
 		
-		self.log.debug(f"SEND(): Sending '{x}'")
+		if show_log:
+			self.log.debug(f"SEND(): Sending '{x}'")
 		
 		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
 		
@@ -247,19 +248,16 @@ class ServerAgent (threading.Thread):
 		while True:
 			
 			loop_count += 1
-			self.log.info(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
+			self.log.lowdebug(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
 			
 			# Receive data and add to packet
-			data_raw += self.sock.recv(PACKET_SIZE) 
-			self.log.info(f"recv: received data from socket. len(data_raw)=>{len(data_raw)}<", detail=f"data={data_raw}")
+			data_raw += self.sock.recv(PACKET_SIZE)
 			
 			# Abort if data too short
 			if len(data_raw) < 3:
 				continue
 			
 			# Get length of length-block
-			dr0 = data_raw[0:1]
-			print(f"data_raw = {type(data_raw)}, Type = {type(dr0)}, data_raw[0] = {dr0}")
 			len_block_len = int.from_bytes(data_raw[0:1], 'big', signed=False)
 			
 			# Abort if data too short to read length-block
@@ -274,15 +272,15 @@ class ServerAgent (threading.Thread):
 				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
 				break
 			elif len(data_raw) > 1+len_block_len+primary_len:
-				self.log.warning(f"")
+				self.log.warning(f"recv() received more bytes than were declared in the packet header. This is likely indicative of a low-level error in pyfrost.")
 				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
 				break
 			else:
 				continue
-		self.log.info("Completed read")
+		self.log.lowdebug("Completed read")
 		
 		if loop_count > 1:
-			self.log.info(f"Data was split over multiple ({loop_count}) reads.")
+			self.log.lowdebug(f"Data was split over multiple ({loop_count}) reads.")
 		
 		# Try to receive encrypted message
 		try:
