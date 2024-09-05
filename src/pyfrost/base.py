@@ -103,6 +103,19 @@ def valid_email(email:str):
 	return re.match(regex, email)
 	
 
+class PermissionsTable:
+	""" Describes different types of actions, and characterizes which actions
+	each account type is allowed to perform. This is how the server is able
+	to tell if a given client is allowed to execute a command. """
+	
+	def __init__(self):
+		self.categories = [] # Each element is a string describing an action type
+		
+		# Each key is an account type, each value is a list of booleans corresponding to whether
+		# this account type is permitted to carry out the action (index matching that in the
+		# cateogies list).
+		self.account_types = {}
+	
 class UserDatabase:
 	""" Handles interactions with, and manipulations of the user data database.
 	

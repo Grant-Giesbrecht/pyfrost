@@ -19,6 +19,7 @@ ENC_FALSE = 100
 ENC_AUTO = 101
 ENC_TRUE = 102
 
+#TODO: Delete this?
 @dataclass
 class ClientOptions:
 	''' Stores options for the client agent that will get passed to both
@@ -142,7 +143,7 @@ class ClientAgent:
 			logging.warning(f"Did not receive acknowledgement for QRYGC from server. Connection is likely broken! ({self.err()})")
 			return False
 		
-		logging.debug(f"Querying GenCommand: [{c.command}], data={c.data}, meta={c.metadata}")
+		# logging.debug(f"Querying GenCommand: [{c.command}], data={c.data}, meta={c.metadata}")
 		
 		# Send command data to server - some affirmative/negative response will be returned.
 		self.send(c.to_utf8())
@@ -173,7 +174,7 @@ class ClientAgent:
 		
 		return ec
 	
-	def send(self, x, encode_rule=ENC_AUTO):
+	def send(self, x, encode_rule=ENC_AUTO, show_log:bool=True):
 		""" Encrypts and sends binary data to the server. If a string is provided,
 		it will automatically encode the string unless 'no_encode' is set to true.
 		Returns pass/fail status.
@@ -181,7 +182,8 @@ class ClientAgent:
 		Uses AES encryption standard.
 		"""
 		
-		self.log.debug(f"SEND(): Sending '{x}'")
+		if show_log:
+			self.log.debug(f"SEND(): Sending '{x}'")
 		
 		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
 		
@@ -393,10 +395,10 @@ class ClientAgent:
 		self.reply. If the reply string is an error (begins with ERRROR:), the 
 		error code is saved as an int in self.error_code. """
 		
-		self.log.debug(f"QUERY(): Sending '{x}'")
+		self.log.lowdebug(f"QUERY(): Sending '{x}'")
 		
 		# Send encrypted message
-		if not self.send(x):
+		if not self.send(x, show_log=False):
 			self.log.warning("Query aborted because send failed.")
 			return False
 		
@@ -417,7 +419,7 @@ class ClientAgent:
 	def query_liststr(self, L:list):
 		""" Query, but sends list data. Returns data still as a string. """
 		
-		self.log.debug(f"QUERY(): Sending '{L}'")
+		self.log.lowdebug(f"QUERY(): Sending '{L}'")
 		
 		# Send encrypted message
 		if not self.send_numlist(L):
