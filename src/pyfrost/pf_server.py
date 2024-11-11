@@ -6,8 +6,7 @@ from colorama import Fore, Style, Back
 from pylogfile.base import *
 
 import rsa
-import hashlib
-import sqlite3
+import sys
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -16,6 +15,8 @@ import time
 from typing import Callable
 from pyfrost.base import *
 
+from PyQt6 import QtCore, QtWidgets
+from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QMainWindow
 
 # Initilize global variable - thread counter
 next_thread_id = 0 # This is NOT protected by a mutex and should only ever be modified or read from the main thread
@@ -734,7 +735,7 @@ def distribution_thread_main():
 	
 	logging.info(f"{dist_id_str}Distribution thread shutting down")
 
-def server_stat_thread_main():
+def server_stat_thread_main(window=None):
 	""" This is the main function for the stat thread. It's job is to 
 	 periodically display status info about the server. """
 	
@@ -752,7 +753,7 @@ def server_stat_thread_main():
 			
 			# Count number of games
 			with master_mutex:
-				num_games = len(sharedata_objects)
+				num_sdo = len(sharedata_objects)
 			
 			# Count number of logged-in users
 			with directory_mutex:
@@ -767,11 +768,13 @@ def server_stat_thread_main():
 			print(f"{Fore.YELLOW}Server Stats:{Style.RESET_ALL}")
 			print(f"\t{Fore.YELLOW}Active Threads: {Style.RESET_ALL}{threading.active_count()}")
 			print(f"\t{Fore.YELLOW}Kill server: {Style.RESET_ALL}{not server_opt.server_running}")
-			print(f"\t{Fore.YELLOW}Number of games: {Style.RESET_ALL}{num_games}")
+			print(f"\t{Fore.YELLOW}Number of shared objects: {Style.RESET_ALL}{num_sdo}")
 			print(f"\t{Fore.YELLOW}Active Logins: {Style.RESET_ALL}")
 			print(f"\t{Fore.YELLOW}\tUsers: {Style.RESET_ALL}{num_unique}")
-			print(f"\t{Fore.YELLOW}\tClient Conn.: {Style.RESET_ALL}{num_active}")
+			print(f"\t{Fore.YELLOW}\tClient Conn.: {Style.RESET_ALL}{num_active}", flush=True)
 			
+			if window is not None:
+				window.stats_widget.update_vals(threading.active_count(), num_sdo, num_unique, num_active)
 			
 			time_last_print = time.time()
 		
@@ -779,7 +782,97 @@ def server_stat_thread_main():
 	
 	logging.info(f"{stat_id_str}Stat thread shutting down")
 
-def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None):
+class StatsWidget(QWidget):
+	
+	def __init__(self):
+		super().__init__()
+		
+		self.grid = QGridLayout()
+		
+		self.title_label = QLabel("Server Stats:")
+		self.grid.addWidget(self.title_label, 0, 0, 1, 2)
+		self.title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+		
+		row = 1
+		self.active_label = QLabel("Active Threads:")
+		self.active_label_val = QLabel("--")
+		self.grid.addWidget(self.active_label, row, 0)
+		self.grid.addWidget(self.active_label_val, row, 1)
+		
+		row = 2
+		self.sdo_label = QLabel("Shared Objects:")
+		self.sdo_label_val = QLabel("--")
+		self.grid.addWidget(self.sdo_label, row, 0)
+		self.grid.addWidget(self.sdo_label_val, row, 1)
+		
+		row = 3
+		self.actlogin_label = QLabel("Active Logins:")
+		self.grid.addWidget(self.actlogin_label, row, 0, 1, 2)
+		self.actlogin_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
+		
+		row = 4
+		self.users_label = QLabel("Logged-in Users:")
+		self.users_label_val = QLabel("--")
+		self.grid.addWidget(self.users_label, row, 0)
+		self.grid.addWidget(self.users_label_val, row, 1)
+		
+		row = 5
+		self.client_label = QLabel("Connected Clients:")
+		self.client_label_val = QLabel("--")
+		self.grid.addWidget(self.client_label, row, 0)
+		self.grid.addWidget(self.client_label_val, row, 1)
+		
+		self.setLayout(self.grid)
+	
+	def update_vals(self, num_threads:int, num_sdo:int, num_users:int, num_clients:int):
+		
+		self.active_label_val.setText(f"{num_threads}")
+		self.sdo_label_val.setText(f"{num_sdo}")
+		self.users_label_val.setText(f"{num_users}")
+		self.client_label_val.setText(f"{num_clients}")
+
+class PyfrostServerGUI(QMainWindow):
+
+	def __init__(self, log, app, gui_title:str, *args, **kwargs):
+		super().__init__(*args, **kwargs)
+		
+		# Save local variables
+		self.log = log
+		
+		self.setWindowTitle(gui_title)
+		
+		self.grid = QtWidgets.QGridLayout()
+		
+		self.stats_widget = StatsWidget()
+		self.grid.addWidget(self.stats_widget, 0, 0)
+		
+		# Set the central widget
+		central_widget = QtWidgets.QWidget()
+		central_widget.setLayout(self.grid)
+		self.setCentralWidget(central_widget)
+		
+		self.show()
+
+def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status"):
+	
+	if use_gui:
+		
+		log = LogPile()
+		app = QtWidgets.QApplication(sys.argv)
+		main_window = PyfrostServerGUI(log, app, gui_title)
+		app.setStyle("Fusion")
+		
+		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title))
+		server_thread.daemon = True
+		server_thread.start()
+		
+		app.exec()
+	
+	else:
+		
+		server_main_loop(sock, query_func, send_func, sa_init_func)
+
+def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status"):
 	''' Main loop that spawns new threads, each with a new ServerAgent, to handle incoming client
 	connections. Socket is the socket new clients will connect to. Functions can be provided to add
 	GenCOmmand handlers for the server, or to initialize the ServerAgents per the users needs (such as
@@ -804,8 +897,12 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 	global next_thread_id, server_opt
 	
 	# Create thread to print server stats periodically
-	stats_thread = threading.Thread(target=server_stat_thread_main)
-	stats_thread.start()
+	if main_window is not None:	# Start with GUI
+		stats_thread = threading.Thread(target=server_stat_thread_main, args=(main_window,))
+		stats_thread.start()
+	else: # Start without GUI
+		stats_thread = threading.Thread(target=server_stat_thread_main)
+		stats_thread.start()
 	
 	# Create thread to deliver messages
 	distribution_thread = threading.Thread(target=distribution_thread_main)
@@ -846,3 +943,4 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 	server_opt.kill_stat_thread = True
 	server_opt.kill_distribution_thread = True
 	server_opt.kill_garbage_thread = True
+

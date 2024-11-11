@@ -25,4 +25,4 @@ def custom_func(sa:ServerAgent, gc:GenCommand) -> bool:
 
 if __name__ == "__main__":
 	
-	server_main(sock, custom_func)
+	server_main(sock, custom_func, use_gui=False)
