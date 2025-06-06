@@ -2,13 +2,13 @@
 '''
 
 from pyfrost.pf_server import *
-import time
 from pylogfile.base import *
-import logging
 import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-l', '--local', help="Use localhost instead of intranet address.", action='store_true')
+parser.add_argument('-d', '--detail', help="Show detailed log messages.", action='store_true')
+parser.add_argument('--loglevel', help="Set the logging display level.", choices=['LOWDEBUG', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], type=str.upper, default="WARNING")
 args = parser.parse_args()
 
 # Create socket - this is not protected by a mutex and should only ever be used by the main thread
@@ -25,4 +25,4 @@ def custom_func(sa:ServerAgent, gc:GenCommand) -> bool:
 
 if __name__ == "__main__":
 	
-	server_main(sock, custom_func, use_gui=False)
+	server_main(sock, custom_func, use_gui=True, loglevel=args.loglevel, detail=args.detail)

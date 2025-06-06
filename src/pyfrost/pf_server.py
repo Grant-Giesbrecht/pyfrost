@@ -622,6 +622,374 @@ class ServerAgent (threading.Thread):
 	def critical(self, msg:str):
 		""" Adds thread string to debug logging message """
 		self.log.critical(f"{self.id_str}{msg}")
+	
+	def set_auth_user(self, user:str):
+		"""Accepts the username of an authorized user and configures the object to reflect that user."""
+		global user_directory, directory_mutex
+		
+		# Add client to directory
+		with directory_mutex:
+			
+			# Create new directory entry and populate
+			de = DirectoryEntry()
+			de.note_list = self.notes
+			de.note_mutex = self.notes_mtx
+			de.t = self.last_update_time
+			
+			# Add to user_directory
+			if user in user_directory:
+				user_directory[user].append(de)
+			else:
+				user_directory[user] = [de]
+		
+		# Remove user authorization
+		self.auth_user = user
+		self.acct_id = self.db.get_user_id(user)
+		self.usr_type = self.db.get_user_type(user)
+		
+	def err(self):
+		"""Returns the last error code. Returns None if last code already read."""
+		
+		# Get last code, then reset to None
+		ec = self.error_code
+		self.error_code = None
+		
+		return ec
+
+	def send(self, x, no_encode=False):
+		""" Encrypts and sends binary data to the client. If a string is provided,
+		it will automatically encode the string unless 'no_encode' is set to true.
+		Returns pass/fail status.
+		"""
+		
+		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
+		
+		# Automatically encode strings
+		if isinstance(x, str) and (not no_encode):
+			x = x.encode()
+		
+		# Encrypt data - produce primary data block
+		primary_data_block = cipher.encrypt(pad(x, AES.block_size))
+		
+		# Create length of primary data block specifier block
+		pdb_len = len(primary_data_block) # Get length of primary block
+		pdb_len_bytes_needed = (pdb_len.bit_length() + 7) // 8 # Get how many bytes needed to represent that number
+		pdb_len_block = pdb_len.to_bytes(pdb_len_bytes_needed, 'big', signed=False) # Convert to bytes
+		
+		# Create initial byte with length of primary block length specifier
+		plb_len = len(pdb_len_block) # Get length of block (should be same as pdb_len_bytes_needed)
+		init_byte = plb_len.to_bytes(1, 'big', signed=False) # Create initial byte
+		
+		# Try to send encrypted message
+		try:
+			self.sock.send(init_byte)
+			self.sock.send(pdb_len_block)
+			self.sock.send(primary_data_block)
+		except socket.error as e:
+			self.log.error(f"{self.id_str}Failed to send data to client. ({str(e)})")
+			return False
+
+		return True
+		
+	def recv(self):
+		""" Receives and decrypts binary data from the client using AES encryption."""
+		
+		cipher = AES.new(self.aes_key, AES.MODE_CBC, iv=self.aes_iv)
+		
+		# Loop until entire packet has been received
+		data_raw = bytearray()
+		loop_count = 0
+		len_block_len = None
+		primary_len = None
+		while True:
+			
+			loop_count += 1
+			self.log.lowdebug(f"recv: reading from socket. Loop=>{loop_count}<, len(data_raw)=>{len(data_raw)}<, len_block_len=>{len_block_len}<, primary_len=>{primary_len}<", detail=f"data={data_raw}")
+			
+			# Receive data and add to packet
+			data_raw += self.sock.recv(PACKET_SIZE)
+			
+			# Abort if data too short
+			if len(data_raw) < 3:
+				continue
+			
+			# Get length of length-block
+			len_block_len = int.from_bytes(data_raw[0:1], 'big', signed=False)
+			
+			# Abort if data too short to read length-block
+			if len(data_raw) < 1+len_block_len:
+				continue
+			
+			# Get length-block
+			primary_len = int.from_bytes(data_raw[1:1+len_block_len], 'big', signed=False)
+			
+			# Get primary block
+			if len(data_raw) == 1+len_block_len+primary_len:
+				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
+				break
+			elif len(data_raw) > 1+len_block_len+primary_len:
+				self.log.warning(f"recv() received more bytes than were declared in the packet header. This is likely indicative of a low-level error in pyfrost.")
+				data_block = data_raw[1+len_block_len:1+len_block_len+primary_len]
+				break
+			else:
+				continue
+		self.log.lowdebug("Completed read")
+		
+		if loop_count > 1:
+			self.log.lowdebug(f"Data was split over multiple ({loop_count}) reads.")
+		
+		# Try to receive encrypted message
+		try:
+			rv = unpad(cipher.decrypt(data_block), AES.block_size) #TODO: Make this work with messages bigger than a packet
+
+		except socket.error as e:
+			self.log.error(f"{self.id_str}Failed to receive data from client. ({str(e)}). Closing connection.")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+		except Exception as e:
+			self.log.error(f"{self.id_str}Failed to receive or decrypt message from client. Closing conection. ({str(e)})")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+
+		return rv
+	
+	def recv_str(self):
+		""" Receives and decrypts a string from the client with AES encryption."""
+		
+		# Receive data
+		data = self.recv()
+		
+		if data is None:
+			return None
+		
+		try:
+			data = data.decode()
+			return data
+		except Exception as e:
+			self.log.warning(f"{self.id_str}Exception occured during recv_str() decode. Closing connection. Message {e}")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+	
+	def recv_numlist(self):
+		""" Receives and decrypts a list of numbers from the client with AES encryption. """
+		
+		s = self.recv_str()
+		data = []
+		
+		running = True
+		while running:
+			
+			try:
+				idx = s.index(':') # Find index
+				ss = s[:idx] # Get substring
+				s=s[idx+1:] # Shorten s
+			except:
+				running = False
+				ss = s
+			
+			try:
+				data.append(float(ss))
+			except:
+				self.warning("Failed to read list data")
+				return []
+		
+		return data
+		
+	def rsa_send(self, x, no_encode=False):
+		""" Encypts data using RSA encryption. NOTE: This has a length limit. For
+		most all communications, use AES encryption with 'send()', not 'rsa_send()'. 
+		AES encryption will bypass the length limit.
+		
+		Encrypts and sends binary data to the client. If a string is provided,
+		it will automatically encode the string unless 'no_encode' is set to true.
+		Returns pass/fail status.
+		"""
+
+		# Automatically encode strings
+		if isinstance(x, str) and (not no_encode):
+			x = x.encode()
+
+		# Try to send encrypted message
+		try:
+			self.sock.send(rsa.encrypt(x, self.client_key))
+			# self.sock.send(x)
+		except socket.error as e:
+			self.log.error(f"{self.id_str}Failed to send data to client. ({str(e)})")
+			return False
+
+		return True
+
+	def rsa_recv(self):
+		""" Receives and decrypts binary data from the client using RSA encryption. NOTE: You
+		should use 'recv()' most of the time, as AES encryption is used for all but exchanging
+		AES keys."""
+
+		# Try to receive encrypted message
+		try:
+			rv = rsa.decrypt(self.sock.recv(PACKET_SIZE), self.private_key)
+			# rv = self.sock.recv(PACKET_SIZE)
+
+		except socket.error as e:
+			self.log.error(f"{self.id_str}Failed to receive data from client. ({str(e)}). Closing connection.")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+		except Exception as e:
+			self.log.error(f"{self.id_str}Failed to receive or decrypt message from client. Closing conection. ({str(e)})")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+
+		return rv
+
+	def rsa_recv_str(self):
+		""" Receives and decrypts a string from the client with RSA encryption."""
+
+		data = self.rsa_recv()
+
+		if data is None:
+			return None
+
+		try:
+			data = data.decode()
+			return data
+		except Exception as e:
+			self.log.warning(f"{self.id_str}Exception occured during recv_str() decode. Closing connection. Message {e}")
+			
+			# Logout the client and prepare to exit
+			self.prepare_exit()
+			self.logout()
+			
+			return None
+	
+	def check_valid_password(self, password):
+		"""This verifies that the password is sufficiently secure (for use during signup)."""
+		
+		# Make sure password is 8+ characters
+		if len(password) < 8:
+			self.error_code = "ERR BAD PASSWORD"
+			return False
+		
+		return True
+	
+	def check_valid_username(self, username):
+		"""Checks if a given string is a valid and unclaimed username. This includes being comprised of the
+		correct characters and is not already taken by another user in the database."""
+		
+		# Check validity of name
+		if not username_follows_rules(username): 
+			self.error_code = "ERR BAD USERNAME"
+			return False
+		
+		# Aquire mutex to protect database
+		with db_mutex:
+			
+			conn = sqlite3.connect("userdata.db")
+			cur = conn.cursor()
+			
+			# Check for user
+			cur.execute("SELECT * FROM userdata WHERE username = ?", (username,))
+			if cur.fetchall():
+				self.error_code = "ERR TAKEN USERNAME"
+				return False
+			else:
+				return True
+			
+	def check_valid_email(self, email_addr:str):
+		"""Checks if a given email address is a valid and unclaimed address"""
+		
+		# Check validity of name
+		regex = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
+		if not re.fullmatch(regex, email_addr):
+			self.error_code = "ERR BAD EMAIL"
+			return False
+		
+		# Aquire mutex to protect database
+		with db_mutex:
+			
+			conn = sqlite3.connect("userdata.db")
+			cur = conn.cursor()
+						
+			# Check for user
+			cur.execute("SELECT * FROM userdata WHERE email_addr = ?", (email_addr,))
+			if cur.fetchall():
+				self.error_code = "ERR TAKEN EMAIL"
+				return False
+			else:
+				return True
+			
+	def check_login(self, username, password):
+		"""  Accepts a username and password and checks if it matches an acct
+		in the database.
+		"""
+		
+		# Aquire mutex to protect database
+		with db_mutex:
+			
+			# Connect to the database
+			# conn = sqlite3.connect(DATABASE_LOCATION)
+			# cur = conn.cursor()
+			
+			# Get has of password
+			password_hash = hashlib.sha256(password.encode()).hexdigest()
+			
+			conn = sqlite3.connect("userdata.db")
+			cur = conn.cursor()
+			
+			# cur.execute("SELECT * FROM userdata WHERE username = ? AND password = ?", (username, password))	
+			
+			# Lookup a match
+			cur.execute("SELECT * FROM userdata WHERE username = ? AND password = ?", (username, password_hash))
+			if cur.fetchall():
+				return True
+			else:
+				return False
+
+	def add_account(self, username:str, password:str, email:str, new_usr_class:int=KONTO_STANDARD):
+		""" Creates a new account in the database with specified information """
+		
+		# Only admin can create non-standard accounts
+		if self.usr_type != KONTO_ADMIN:
+			new_usr_class = KONTO_STANDARD
+		
+		# Add to database
+		return self.db.add_user(username, password, email, new_usr_class)
+
+	def run(self):
+		""" Main loop. Engages when the thread is started. """
+		
+		# count = 5
+		
+		# Run main loop
+		while self.state != ServerAgent.TS_EXIT:
+			
+			# count -= 1
+			
+			self.log.debug(f"{self.id_str}Restarting loop. State = {self.state}")
+			
+			# if count <= 0:
+			# 	print("exceeded count limit")
+			# 	break
+			
+			self.main_loop()
 
 def garbage_collect_thread_main():
 	""" This thread periodically checks for global resources on the server that are no longer
@@ -853,7 +1221,7 @@ class PyfrostServerGUI(QMainWindow):
 		
 		self.show()
 
-def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status"):
+def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False):
 	
 	if use_gui:
 		
@@ -862,7 +1230,7 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		main_window = PyfrostServerGUI(log, app, gui_title)
 		app.setStyle("Fusion")
 		
-		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title))
+		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail))
 		server_thread.daemon = True
 		server_thread.start()
 		
@@ -870,9 +1238,9 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 	
 	else:
 		
-		server_main_loop(sock, query_func, send_func, sa_init_func)
+		server_main_loop(sock, query_func, send_func, sa_init_func, loglevel=loglevel, detail=detail)
 
-def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status"):
+def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False):
 	''' Main loop that spawns new threads, each with a new ServerAgent, to handle incoming client
 	connections. Socket is the socket new clients will connect to. Functions can be provided to add
 	GenCOmmand handlers for the server, or to initialize the ServerAgents per the users needs (such as
@@ -915,15 +1283,20 @@ def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func
 	# Loop accept client connections
 	while server_opt.server_running:
 		
-		new_log = LogPile()
-		
 		# Accept a new client connection
 		try:
 			client_socket, client_addr = sock.accept()
 		except socket.timeout:
 			logging.info(f"{id_str}Timed out waiting for client")
 			continue
+		
+		
 		logging.info(f"{id_str}Accepted client connected on address <{client_addr}>")
+		
+		# Create and configure log object
+		new_log = LogPile()
+		new_log.set_terminal_level(loglevel)
+		new_log.str_format.show_detail = detail
 		
 		# Create server agent class
 		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func)
