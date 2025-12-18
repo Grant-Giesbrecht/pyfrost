@@ -20,9 +20,33 @@ else:
 	sock.bind(("192.168.1.116", 5555))
 sock.listen()
 
-def custom_func(sa:ServerAgent, gc:GenCommand) -> bool:
-	return False
+def custom_func(sa:ServerAgent, gc:GenCommand) -> GenData:
+	''' This will process GenCommand objects received by the server from clients that DO expect a network response in the form of a GenData object.
+	'''
+	
+	print(f"\n\nQUERY FUNC\n\n")
+	
+	if gc.command == "NUM-CLIENTS":
+		
+		data = GenData({"number":14}) #TODO: Make this a real number
+		return data
+	
+	else:
+		
+		print(f"Didn't recognize command. {gc.command}")
+		print(gc)
+
+def custom_send_func(sa:ServerAgent, gc:GenCommand) -> bool:
+	'''
+	This will process GenCOmmand obkjects received by the server from the clients that expent NO NETWORK RESPONSE from the server.'''
+	
+	print(f"\n\nSEND FUNC\n\n")
+	
+	if gc.command == "NUM-CLIENTS":
+		
+		data = GenData({"number":14}) #TODO: Make this a real number
+		return data
 
 if __name__ == "__main__":
 	
-	server_main(sock, custom_func, use_gui=True, loglevel=args.loglevel, detail=args.detail)
+	server_main(sock, query_func=custom_func, send_func=custom_send_func, use_gui=True, loglevel=args.loglevel, detail=args.detail)

@@ -24,6 +24,8 @@ else:
 
 #TODO: Add example with GenCommand
 def custom_func(ca:ClientAgent, opt:ClientOptions, words:list) -> bool:
+	''' This will process command line input. Words will contain the command line data.
+	'''
 	
 	# Get command string
 	cmd = words[0].str
@@ -33,6 +35,23 @@ def custom_func(ca:ClientAgent, opt:ClientOptions, words:list) -> bool:
 		print("Hey! You triggered the custom function.")
 		return True
 	
+	elif cmd.upper() == "NUM-CLIENTS":
+		print(f"I'm going to query the server for the number of active clients.")
+		
+		cmd = GenCommand("NUM-CLIENTS", {})
+		dat = ca.query_command(cmd)
+		
+		try:
+			n=dat.data['number']
+		except Exception as e:
+			print(f"Failed to process response. ({e})")
+			print(dat)
+			print(dat.data)
+			n = -1
+			
+		print(f"Received value: {n}")
+		
+		return True
 	return False
 
 if __name__ == '__main__':
