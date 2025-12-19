@@ -16,6 +16,8 @@ import os
 import datetime
 import copy
 
+import pylogfile.base as plf
+
 LOG_LEVEL = logging.INFO
 tabchar = "    "
 prime_color = Fore.CYAN
@@ -955,3 +957,11 @@ class SyncData(Packable):
 		JD = json.loads(json_data.decode('utf-8'))
 		self.unpack(JD)	
 
+def console_respond(msg:str, markdown:bool=True):
+	'''
+	Prints a message with formatting to the console.
+	'''
+	
+	out = plf.markdown(msg)
+	
+	print(f"    {out}")
