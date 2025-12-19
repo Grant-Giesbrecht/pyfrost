@@ -101,13 +101,15 @@ class ServerAgent (threading.Thread):
 	TS_MAIN = 3 # Client authorized, at main loop
 	TS_EXIT = 0 # Exit main loop, close thread
 	
-	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None):
+	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, stowaway=None):
 		
 		super().__init__()
 		
 		# Captures which screen/state the client should be in and what type of
 		# commands server should be ready for
 		self.state = ServerAgent.TS_HAND
+		
+		self.stowaway = stowaway
 
 		# Client user data
 		self.auth_user = None # This will have username of user who has been authorized as loged in
@@ -1200,7 +1202,7 @@ class StatsWidget(QWidget):
 		self.client_label_val.setText(f"{num_clients}")
 
 class PyfrostServerGUI(QMainWindow):
-
+	
 	def __init__(self, log, app, gui_title:str, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		
@@ -1221,7 +1223,13 @@ class PyfrostServerGUI(QMainWindow):
 		
 		self.show()
 
-def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False):
+def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
+	'''
+	
+	stowaway: Optional class type that, if provided, will be created inside each serverAgent. This provides
+		a easy way of passing objects to each thread, much like customizing the ServerAgent itself.
+	
+	'''
 	
 	if use_gui:
 		
@@ -1230,7 +1238,7 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		main_window = PyfrostServerGUI(log, app, gui_title)
 		app.setStyle("Fusion")
 		
-		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail))
+		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail, stowaway))
 		server_thread.daemon = True
 		server_thread.start()
 		
@@ -1240,7 +1248,7 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		
 		server_main_loop(sock, query_func, send_func, sa_init_func, loglevel=loglevel, detail=detail)
 
-def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False):
+def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
 	''' Main loop that spawns new threads, each with a new ServerAgent, to handle incoming client
 	connections. Socket is the socket new clients will connect to. Functions can be provided to add
 	GenCOmmand handlers for the server, or to initialize the ServerAgents per the users needs (such as
@@ -1260,6 +1268,11 @@ def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func
 		* Modifies the provided ServerAgent and returns it. 
 		* Can be used to initialize a ServerAgent per the users needs prior to being started in 
 		  a new thread.
+	
+	stowaway: Optional class type that, if provided, will be created inside each serverAgent. This provides
+		a easy way of passing objects to each thread, much like customizing the ServerAgent itself. Object must be initialized
+		with no arguments. Use sa_init_func if you need to initialize it in some way.
+	
 	 '''
 	
 	global next_thread_id, server_opt
@@ -1298,8 +1311,14 @@ def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func
 		new_log.set_terminal_level(loglevel)
 		new_log.str_format.show_detail = detail
 		
+		# Create state_object if provided
+		if stowaway is not None:
+			new_so = stowaway()
+		else:
+			new_so = None
+		
 		# Create server agent class
-		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func)
+		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func, stowaway=new_so)
 		sa.enforce_password_rules = False # Allow weak passwords
 		
 		# Call initialization function if provided
