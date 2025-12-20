@@ -117,7 +117,7 @@ class ClientAgent:
 		if self.reply == "ACK":
 			logging.debug("SENDGC was processed on server without incident.")
 		else:
-			logging.debug(f"Server refused to execute SENDGC. ({self.reply})")
+			logging.warning(f"Server refused to execute SENDGC. ({self.reply})")
 			return False
 		
 		return True
