@@ -121,7 +121,7 @@ def main():
 				sys.exit()
 		
 		# Add to database
-		cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", acct_type, str(datetime.datetime.now())))
+		cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", acct_type, str(datetime.now())))
 		
 		# Check if user wishes to add more users
 		rt = input(f"{Fore.CYAN}Add more users? (Y/n): {Style.RESET_ALL}")

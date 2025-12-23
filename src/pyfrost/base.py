@@ -9,14 +9,16 @@ from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from pylogfile.base import *
 from abc import ABC, abstractmethod
-from jarnsaxa import *
 import logging #TODO: Replace this with pylogfile eventually
 import copy
 import os
-import datetime
+from datetime import datetime
 import copy
+from stardust.cli import *
+import re
 
 import pylogfile.base as plf
+from stardust.serializer import *
 
 LOG_LEVEL = logging.INFO
 tabchar = "    "
@@ -173,7 +175,7 @@ class UserDatabase:
 				self.log.critical(f"{self.id_str}Failed to access account ID from database.")
 				return False
 		
-			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.datetime.now())))
+			cur.execute("INSERT INTO userdata (username, password, acct_id, email_addr, verified, acct_type, join_date) VALUES (?, ?, ?, ?, ?, ?, ?)", (username, password_hash, next_ID , email, "No", usr_type, str(datetime.now())))
 			conn.commit()
 		
 		return True
@@ -366,228 +368,228 @@ class Packable(ABC):
 			setattr(self, mi, temp_list)
 				# self.obj_manifest[mi] = copy.deepcopy(temp_list)
 
-# TODO: Should this be deleted in favor of ThreadSafeList
-class ThreadSafeDict():
-	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
-	management in a thread-safe manner. NOTE: The mutex of each instance MUST be acquired before
-	calling the functions of the instance!'''
-	
-	def __init__(self):
-		super().__init__()
-		
-		# Data list. It should not be directly accessed because it needs to be modified and read only via mutex control
-		self._data = {}
-		self.mtx = threading.Lock()
-	
-	def add_param(self, param_name:str) -> bool:
-		''' Adds a list under the parameter 'param_name'. '''
-		
-		# Check if param already exists
-		if param_name in self._data:
-			# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeDict object.")
-			return False
-		
-		# Initialize parameter
-		self._data[param_name] = []
-	
-	def append(self, param_name:str, val):
-		''' Adds an element to the specified list. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return False
-		
-		# Add value to list
-		try:
-			self._data[param_name].append(val)
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return False
-		
-		return True
-	
-	def get_param_len(self, param_name:str):
-		''' Returns the length of the specified parameter. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			k = self._data.keys()
-			print(f"{param_name} not in {k}")
-			return None
-		
-		# Return length of parameter
-		return len(self._data[param_name])
-		
-	def read(self, param_name:str, idx:int):
-		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
-		 the object so the return value is entirely thread safe. Returns none on error. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return None
-		
-		# Check index in range
-		if idx >= len(self._data[param_name]):
-			# self.log.warning(f"Index out of bounds.")
-			return None
-		
-		# REturn copy of value
-		try:
-			return copy.deepcopy(self._data[param_name][idx])
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return None
-	
-	def read_attr(self, param_name:str, idx:int, attr:str):
-		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
-		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return None
-		
-		# Check index in range
-		if idx >= len(self._data[param_name]):
-			# self.log.warning(f"Index out of bounds.")
-			return None
-		
-		# Check attribute exists
-		if attr not in self._data[param_name][idx].__dict__:
-			# self.log.warning(f"Missing attribute.")
-			return None
-		
-		# REturn copy of value
-		try:
-			return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return None
-	
-	def set(self, param_name:str, idx:int, val):
-		''' Sets a value of the specified parameter at the specified index. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return False
-		
-		# Check index in range
-		if idx >= len(self._data[param_name]):
-			# self.log.warning(f"Index out of bounds.")
-			return False
-		
-		# REturn copy of value
-		try:
-			self._data[param_name][idx] = val
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return False
-		
-		return True
-	
-	def set_attr(self, param_name:str, idx:int, attr:str, val):
-		''' Sets a value of the specified parameter and attribute at the specified index. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return False
-		
-		# Check index in range
-		if idx >= len(self._data[param_name]):
-			# self.log.warning(f"Index out of bounds.")
-			return False
-		
-		# Check attribute exists
-		if attr not in self._data[param_name][idx].__dict__:
-			# self.log.warning(f"Missing attribute.")
-			return False
-		
-		# Return copy of value
-		try:
-			self._data[param_name][idx].__dict__[attr] = val
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return False
-		
-		return True
-	
-	def remove(self, param_name:str, idx:int) -> bool:
-		''' Deletes the value from the specified index. '''
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return False
-		
-		# Check index in range
-		if idx >= len(self._data[param_name]):
-			# self.log.warning(f"Index out of bounds.")
-			return False
-		
-		# Return copy of value
-		try:
-			del self._data[param_name][idx]
-		except Exception as e:
-			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
-			return False
-		
-		return True
-	
-	def find(self, param_name:str, val, end_on_find:bool=True) -> list:
-		''' Checks each index of the specified parameter and looks for the provided value. Returns a
-		a list of every index that matches. Returns only the first index if end_on_find is set to true.
-		Returns an empty list if no matches occur.'''
-		
-		match_vals = []
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return match_vals
-		
-		# Scan over all values
-		for idx, parval in enumerate(self._data[param_name]):
-			
-			# Check for match
-			if parval == val:
-				match_vals.append(idx)
-				if end_on_find:
-					break
-		
-		return match_vals
-	
-	def find_attr(self, param_name:str, attr:str, val, end_on_find:bool=True) -> list:
-		''' Checks each index of the specified parameter and looks for the specified attribute
-		to match the provided value.  Returns a	a list of every index that matches. Returns 
-		only the first index if end_on_find is set to true.	Returns an empty list if no matches occur.'''
-		
-		match_vals = []
-		
-		# Check param exists
-		if param_name not in self._data:
-			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
-			return []
-		
-		# Scan over all values
-		for idx, parval in enumerate(self._data[param_name]):
-			
-			# Check attribute exists
-			if attr not in parval.__dict__:
-				# self.log.warning(f"Missing attribute.")
-				return []
-			
-			# Check for match
-			if parval.__dict__[attr] == val:
-				match_vals.append(idx)
-				if end_on_find:
-					break
-		
-		return match_vals
+# # TODO: Should this be deleted in favor of ThreadSafeList
+# class ThreadSafeDict():
+# 	''' Tracks a series of parameters, each of which is a list of any data type. Performs this
+# 	management in a thread-safe manner. NOTE: The mutex of each instance MUST be acquired before
+# 	calling the functions of the instance!'''
+# 	
+# 	def __init__(self):
+# 		super().__init__()
+# 		
+# 		# Data list. It should not be directly accessed because it needs to be modified and read only via mutex control
+# 		self._data = {}
+# 		self.mtx = threading.Lock()
+# 	
+# 	def add_param(self, param_name:str) -> bool:
+# 		''' Adds a list under the parameter 'param_name'. '''
+# 		
+# 		# Check if param already exists
+# 		if param_name in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' already exists in ThreadSafeDict object.")
+# 			return False
+# 		
+# 		# Initialize parameter
+# 		self._data[param_name] = []
+# 	
+# 	def append(self, param_name:str, val):
+# 		''' Adds an element to the specified list. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return False
+# 		
+# 		# Add value to list
+# 		try:
+# 			self._data[param_name].append(val)
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return False
+# 		
+# 		return True
+# 	
+# 	def get_param_len(self, param_name:str):
+# 		''' Returns the length of the specified parameter. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			k = self._data.keys()
+# 			print(f"{param_name} not in {k}")
+# 			return None
+# 		
+# 		# Return length of parameter
+# 		return len(self._data[param_name])
+# 		
+# 	def read(self, param_name:str, idx:int):
+# 		''' Reads the value of the specified parameter at the specified index. Returns a deepcopy of
+# 		 the object so the return value is entirely thread safe. Returns none on error. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return None
+# 		
+# 		# Check index in range
+# 		if idx >= len(self._data[param_name]):
+# 			# self.log.warning(f"Index out of bounds.")
+# 			return None
+# 		
+# 		# REturn copy of value
+# 		try:
+# 			return copy.deepcopy(self._data[param_name][idx])
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return None
+# 	
+# 	def read_attr(self, param_name:str, idx:int, attr:str):
+# 		''' Reads the value of the specified attribute of the specified parameter at the specified index. Returns
+# 		 a deepcopy of the object so the return value is entirely thread safe. Returns none on error. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return None
+# 		
+# 		# Check index in range
+# 		if idx >= len(self._data[param_name]):
+# 			# self.log.warning(f"Index out of bounds.")
+# 			return None
+# 		
+# 		# Check attribute exists
+# 		if attr not in self._data[param_name][idx].__dict__:
+# 			# self.log.warning(f"Missing attribute.")
+# 			return None
+# 		
+# 		# REturn copy of value
+# 		try:
+# 			return copy.deepcopy(self._data[param_name][idx].__dict__[attr])
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return None
+# 	
+# 	def set(self, param_name:str, idx:int, val):
+# 		''' Sets a value of the specified parameter at the specified index. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return False
+# 		
+# 		# Check index in range
+# 		if idx >= len(self._data[param_name]):
+# 			# self.log.warning(f"Index out of bounds.")
+# 			return False
+# 		
+# 		# REturn copy of value
+# 		try:
+# 			self._data[param_name][idx] = val
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return False
+# 		
+# 		return True
+# 	
+# 	def set_attr(self, param_name:str, idx:int, attr:str, val):
+# 		''' Sets a value of the specified parameter and attribute at the specified index. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return False
+# 		
+# 		# Check index in range
+# 		if idx >= len(self._data[param_name]):
+# 			# self.log.warning(f"Index out of bounds.")
+# 			return False
+# 		
+# 		# Check attribute exists
+# 		if attr not in self._data[param_name][idx].__dict__:
+# 			# self.log.warning(f"Missing attribute.")
+# 			return False
+# 		
+# 		# Return copy of value
+# 		try:
+# 			self._data[param_name][idx].__dict__[attr] = val
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return False
+# 		
+# 		return True
+# 	
+# 	def remove(self, param_name:str, idx:int) -> bool:
+# 		''' Deletes the value from the specified index. '''
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return False
+# 		
+# 		# Check index in range
+# 		if idx >= len(self._data[param_name]):
+# 			# self.log.warning(f"Index out of bounds.")
+# 			return False
+# 		
+# 		# Return copy of value
+# 		try:
+# 			del self._data[param_name][idx]
+# 		except Exception as e:
+# 			# self.log.warning(f"Failed to add value to ThreadSafeDict object.", detail=f"{e}")
+# 			return False
+# 		
+# 		return True
+# 	
+# 	def find(self, param_name:str, val, end_on_find:bool=True) -> list:
+# 		''' Checks each index of the specified parameter and looks for the provided value. Returns a
+# 		a list of every index that matches. Returns only the first index if end_on_find is set to true.
+# 		Returns an empty list if no matches occur.'''
+# 		
+# 		match_vals = []
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return match_vals
+# 		
+# 		# Scan over all values
+# 		for idx, parval in enumerate(self._data[param_name]):
+# 			
+# 			# Check for match
+# 			if parval == val:
+# 				match_vals.append(idx)
+# 				if end_on_find:
+# 					break
+# 		
+# 		return match_vals
+# 	
+# 	def find_attr(self, param_name:str, attr:str, val, end_on_find:bool=True) -> list:
+# 		''' Checks each index of the specified parameter and looks for the specified attribute
+# 		to match the provided value.  Returns a	a list of every index that matches. Returns 
+# 		only the first index if end_on_find is set to true.	Returns an empty list if no matches occur.'''
+# 		
+# 		match_vals = []
+# 		
+# 		# Check param exists
+# 		if param_name not in self._data:
+# 			# self.log.warning(f"Parameter '{param_name}' missing in ThreadSafeDict object.")
+# 			return []
+# 		
+# 		# Scan over all values
+# 		for idx, parval in enumerate(self._data[param_name]):
+# 			
+# 			# Check attribute exists
+# 			if attr not in parval.__dict__:
+# 				# self.log.warning(f"Missing attribute.")
+# 				return []
+# 			
+# 			# Check for match
+# 			if parval.__dict__[attr] == val:
+# 				match_vals.append(idx)
+# 				if end_on_find:
+# 					break
+# 		
+# 		return match_vals
 
 class ThreadSafeList():
 	''' Tracks a list of any one data type. Includes a mutex for easy tracking.
@@ -764,7 +766,7 @@ class GenData(Packable):
 		self.data = data
 		
 		# Metadata
-		self.metadata = {"created":str(datetime.datetime.now()), "error_str": ""}
+		self.metadata = {"created":str(datetime.now()), "error_str": ""}
 	
 	def has(self, key_list:list):
 		''' Verifies that the command has the following data fields.
@@ -876,8 +878,10 @@ class GenCommand(GenData):
 		''' Auto-formats command '''
 		self.command = self.command.upper()
 
-class Message(Packable):
+class Message(Serializable):
 	""" Object saved to distribution inbox to be passed along to other clients."""
+	
+	__state_fields__ = ("sender", "recipient", "msg", "timestamp_created")
 	
 	def __init__(self, sender:str=None, recip:str=None, msg:str=None):
 		
@@ -886,76 +890,23 @@ class Message(Packable):
 		self.sender = sender
 		self.recipient = recip
 		self.msg = msg
-	
-		self.timestamp_created = str(datetime.datetime.now()) # Time when the message was received by the server
 		
-		# self.set_manifest()
-		
-	def set_manifest(self):
-		
-		self.manifest.append("sender")
-		self.manifest.append("msg")
-		self.manifest.append("recipient")
-		self.manifest.append("timestamp_created")
+		self.timestamp_created = str(datetime.now()) # Time when the message was received by the 
 
-class SyncData(Packable):
-	""" TODO: UPDATE
+class SyncData(Serializable):
+	""" This class is used to syncronize the server and clinets. 
 	"""
 	
+	__state_fields__ = ("notes", "lobby", "stowaway", "connection_state")
+	
 	def __init__(self):
-		
 		super().__init__()
-		
-		#TODO: UPDATE This
-		#=======================================================================#
-		#                    HOW TO ADD FIELDS TO SyncData                      #
-		# 1. Add to __init__() function											#
-		# 2. Add to to_utf8() and from_utf8()									#
-		# 3. In ServerAgent: (server_core.py)									#
-		#	   I. Add field to get_syncdata() 									#
-		# 4. In ClientAgent: (core.py)											#
-		#      II. Add field to sync()											#
-		#																		#
-		#=======================================================================#
-		# TO PACK OR NOT TO PACK?												#
-		#	* As long as it's consistent for any one variable, it doesn't 		#
-		#	  matter much. For some objects packing sooner is easier as it		#
-		#	  makes it easier to not mess up the mutex/addressing.				#
-		#																		#
-		#=======================================================================#
 		
 		self.notes = [] # Notifications/messages for the user in unpacked form
 		
-		self.packed_sharedata = {} # ThreadSafeDict object for client in PACKED form
-		
-		# ---1. Finish writing this class
-		# ---2. Give it a better name?
-		# 3. On the server side, make the ServerAgent create a SyncState object
-		# 4. server passes serialized (via JSON: https://stackoverflow.com/questions/23876608/how-to-send-the-content-of-a-dictionary-properly-over-sockets-in-python3x)
-		#    SyncState object to client
-		# 5. Client unpacks SyncState object, updates itself
-		# 6. CLI (or GUI later), having just called sync, knows to look for cool new shits and display stuff
-		
-		# self.set_manifest()
-	
-	def set_manifest(self):
-		
-		self.manifest.append("packed_sharedata")
-		
-		self.list_manifest['notes'] = Message()
-	
-	def to_utf8(self):
-		""" Saves the object's data to an encoded JSON string """
-		
-		JD = self.pack()
-		return json.dumps(JD).encode('utf-8')
-	
-	def from_utf8(self, json_data:bytes):
-		""" Accepts JSON data (as bytes) and populates the object from the JSON data """
-		
-		# Get dictionary
-		JD = json.loads(json_data.decode('utf-8'))
-		self.unpack(JD)	
+		self.lobby = None # Lobby object in unpacked form
+		self.stowaway = None # Stowaway object
+		self.connection_state = None # Connection state object
 
 def console_respond(msg:str, markdown:bool=True):
 	'''

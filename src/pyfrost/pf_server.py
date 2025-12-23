@@ -1,5 +1,6 @@
 import socket
 import threading
+import msgpack
 
 from colorama import Fore, Style, Back
 
@@ -55,10 +56,26 @@ KONTO_STANDARD = 'STANDARD' # Standard account
 KONTO_TRIAL = 'TRIAL' # Trial account
 KONTO_ADMIN = 'ADMIN' # Administrator account
 
-# Master mutex protects the lists: 'sharedata_objects' and 'sharedata_mutexes'
-master_mutex = threading.Lock()
-sharedata_objects = [] # This will hold all the sharedata objects (This is a pool of data shared between mult clients and sync'd via the server.)
-sharedata_mutexes = [] # This will hold all the mutexes for each sharedata obejct
+lobby_id_mutex = threading.Lock()
+next_lobby_id = 0
+
+lobby_master_lock = threading.Lock() # Lock to protect `lobby_objects` and `lobby_locks`
+lobby_objects = [] # List of lobby objects. Each client will have a `self.lobby` that points to one of these, but must be accessed by it's `self.lobby_lock` which points to an item in the list `lobby_locks`
+# Each Lobby object must:
+# - Inherit from Serializable
+# - Define a function: `client_count()` that returns number of clients using it. WHen
+#	zero, the garbage collection thread will delete it.
+# 
+
+lobby_locks = [] # List of mutexes to protect each of the corresponding lobby objects.
+
+
+
+# #TODO: sharedata might be redundant now that lobby_objects was added.
+# # Master mutex protects the lists: 'sharedata_objects' and 'sharedata_mutexes'
+# master_mutex = threading.Lock()
+# sharedata_objects = [] # This will hold all the sharedata objects (This is a pool of data shared between mult clients and sync'd via the server.)
+# sharedata_mutexes = [] # This will hold all the mutexes for each sharedata obejct
 
 # Distribution mutex protects the distribution inbox
 distribution_mutex = threading.Lock()
@@ -101,14 +118,45 @@ class ServerAgent (threading.Thread):
 	TS_MAIN = 3 # Client authorized, at main loop
 	TS_EXIT = 0 # Exit main loop, close thread
 	
-	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, stowaway=None):
+	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, connection_state=None, lobby_pair:tuple=None, stowaway=None):
+		'''
+		lobby_pair is a tuple and expects a Serializable lobby object (in global/shared memory) as
+			the first element, and a mutex (also in global/shared memeory) in the second index.
 		
+		'''
 		super().__init__()
+		
+		# Log object
+		self.log = log
 		
 		# Captures which screen/state the client should be in and what type of
 		# commands server should be ready for
 		self.state = ServerAgent.TS_HAND
 		
+		# Only firm requirement is that this object is a Serializable. However, in
+		# the pyfrost network model, this object is intended to house a state
+		# machine that tracks the state of the connection to the client. This way
+		# the server knows how to behave in response to client commands.
+		self.connection_state = connection_state
+		
+		# Must be Serializable. The lobby object is intended to point to an object in the global variable 
+		# `lobby_objects`. A lobby is supposed to be an object shared between multiple
+		# clients (which is presumably required in a networked application).
+		if lobby_pair is not None:
+			try:
+				self.lobby_mtx = lobby_pair[0]
+				self.lobby = lobby_pair[1]
+			except Exception as e:
+				self.log.critical(f"Invalid lobby argument passed. ({e})")
+				raise ValueError
+		else:
+			self.lobby_mtx = None
+			self.lobby = None
+		
+		# Must be Serializable. The stowaway is an additional object you can add to the ServerAgent outside
+		# of the typical pyfrost connection model. This was originally used to
+		# house the self.connection_state object before this became a formailzed
+		# variable.
 		self.stowaway = stowaway
 
 		# Client user data
@@ -124,9 +172,6 @@ class ServerAgent (threading.Thread):
 		# Socket object from connecting to client program
 		self.sock = sock
 		
-		# Log object
-		self.log = log
-
 		# Generate keys and AES cipher
 		self.public_key, self.private_key = rsa.newkeys(1024)
 		self.aes_key = get_random_bytes(AES_KEY_SIZE)
@@ -148,10 +193,10 @@ class ServerAgent (threading.Thread):
 		self.thread_id = thread_id
 		self.id_str = f"{Fore.LIGHTMAGENTA_EX}[T-ID: {Fore.WHITE}{self.thread_id}{Fore.LIGHTMAGENTA_EX}]{Style.RESET_ALL} " # Thread ID string for each logging message
 		
-		# These will point to a sharedata and mutex in the main 'sharedata' and 'sharedata_mutexes'
-		# lists. Use sharedata_mutex prior to modifying the sharedata object.
-		self.sharedata = ThreadSafeDict()
-		self.sharedata_mutex = None
+		# # These will point to a sharedata and mutex in the main 'sharedata' and 'sharedata_mutexes'
+		# # lists. Use sharedata_mutex prior to modifying the sharedata object.
+		# self.sharedata = ThreadSafeDict()
+		# self.sharedata_mutex = None
 		
 		# The notes array contains any incoming notifications or messages. It will be modified
 		# by the distribution thread, so be sure to always use the mutex before checking/modifying it.
@@ -507,7 +552,9 @@ class ServerAgent (threading.Thread):
 				sd = self.get_syncdata()
 				
 				# Send sync data
-				self.send(sd.to_utf8())
+				sd_dict = to_serial_dict(sd)
+				payload = msgpack.packb(sd_dict, use_bin_type=True) # Serialize dictionary
+				self.send(payload, no_encode=True)
 	
 	def logout(self):
 		""" Logout the user. Deauthorize the client."""
@@ -592,13 +639,22 @@ class ServerAgent (threading.Thread):
 		# Populate notes
 		sd.notes = copy.deepcopy(self.notes)
 		
-		# Populate sharedata
-		if self.sharedata_mutex is None:
-			sd.packed_sharedata = self.sharedata.pack()
+		if self.lobby_mtx is not None:
+			with self.lobby_mtx:
+				sd.lobby = copy.deepcopy(self.lobby) #TODO: Make sure this works
 		else:
-			# Acquire sharedata mutex
-			with self.sharedata_mutex:
-				sd.packed_sharedata = self.sharedata.pack()
+			sd.lobby = None
+		sd.connection_state = self.connection_state
+		sd.stowaway = self.stowaway
+		
+		
+		# # Populate sharedata
+		# if self.sharedata_mutex is None:
+		# 	sd.packed_sharedata = self.sharedata.pack()
+		# else:
+		# 	# Acquire sharedata mutex
+		# 	with self.sharedata_mutex:
+		# 		sd.packed_sharedata = self.sharedata.pack()
 		
 		self.notes.clear() # Clear local notes
 		
@@ -998,7 +1054,7 @@ def garbage_collect_thread_main():
 	used and can be deleted. """
 	
 	global server_opt
-	global sharedata_objects, master_mutex
+	global lobby_objects, lobby_locks, lobby_master_lock
 	global user_directory, directory_mutex
 	
 	time_last_collect = time.time()
@@ -1014,24 +1070,45 @@ def garbage_collect_thread_main():
 			# logging.debug(f"{garb_id_str}Running garbage collection")
 			
 			# Get master mutex
-			with master_mutex:
+			with lobby_master_lock:
 				
 				#TODO: I should probably create a list of users and IDs so
 				# I can't find the correct game without using the global mutex.
 				# Scan over all game objects, look for ID
 				#TODO: Instead of matching their indecies, I should probably make them a touple or something
-				for idx, go in enumerate(sharedata_objects):
+				for idx, go in enumerate(lobby_objects):
 					
 					delete_this_index = False
 					
 					# Get local mutex
-					with sharedata_mutexes[idx]:
-						if len(go.client_count) == 0: # If game has no players, delete it
+					with lobby_locks[idx]:
+						if len(go.client_count()) == 0: # If game has no players, delete it
 							delete_this_index = True
 					if delete_this_index:
 						# logging.info(f"{garb_id_str}Deleting game [Lobby ID={go.id}]")
-						del sharedata_mutexes[idx]
-						del sharedata_objects[idx]
+						del lobby_locks[idx]
+						del lobby_objects[idx]
+			
+			
+			# # Get master mutex
+			# with master_mutex:
+			# 	
+			# 	#TODO: I should probably create a list of users and IDs so
+			# 	# I can't find the correct game without using the global mutex.
+			# 	# Scan over all game objects, look for ID
+			# 	#TODO: Instead of matching their indecies, I should probably make them a touple or something
+			# 	for idx, go in enumerate(sharedata_objects):
+			# 		
+			# 		delete_this_index = False
+			# 		
+			# 		# Get local mutex
+			# 		with sharedata_mutexes[idx]:
+			# 			if len(go.client_count) == 0: # If game has no players, delete it
+			# 				delete_this_index = True
+			# 		if delete_this_index:
+			# 			# logging.info(f"{garb_id_str}Deleting game [Lobby ID={go.id}]")
+			# 			del sharedata_mutexes[idx]
+			# 			del sharedata_objects[idx]
 			
 			time_last_collect = time.time()
 		
@@ -1110,7 +1187,7 @@ def server_stat_thread_main(window=None):
 	 periodically display status info about the server. """
 	
 	global server_opt
-	global sharedata_objects, master_mutex
+	global lobby_objects, lobby_master_lock
 	global user_directory, directory_mutex
 	
 	time_last_print = time.time()
@@ -1121,9 +1198,12 @@ def server_stat_thread_main(window=None):
 			
 		if time.time() - time_last_print > SERVER_STAT_PRINT:
 			
-			# Count number of games
-			with master_mutex:
-				num_sdo = len(sharedata_objects)
+			# # Count number of games
+			# with master_mutex:
+			# 	num_sdo = len(sharedata_objects)
+						# Count number of games
+			with lobby_master_lock:
+				num_sdo = len(lobby_objects)
 			
 			# Count number of logged-in users
 			with directory_mutex:

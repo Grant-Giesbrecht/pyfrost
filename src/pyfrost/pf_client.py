@@ -4,6 +4,7 @@ import tabulate
 import threading
 import hashlib
 import sqlite3
+import msgpack
 from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
@@ -37,7 +38,7 @@ class ClientAgent:
 	CS_LOGIN = 2 # At login/signup phase - not authorized
 	CS_MAIN = 3 # Connected to server, can perform primary operations
 	
-	def __init__(self, log:LogPile, address:str=None, port:int=None):
+	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None):
 		
 		# Save log object
 		self.log = log
@@ -46,6 +47,21 @@ class ClientAgent:
 		self.ipaddr = address
 		self.port = port
 		self.addr = (self.ipaddr, self.port)
+		
+		# Only firm requirement is that this object is a Packable. However, in
+		# the pyfrost network model, this object is intended to house a state
+		# machine that tracks the state of the connection to the server.
+		self.connection_state = None
+		
+		# This is the lobby object. Fundamentally, the lobby object is saved on the server in
+		# global memory. This is a local duplicate that is updated via `sync()` calls.
+		self.lobby = None
+		
+		# The stowaway is an additional object you can add to the ClientAgent outside
+		# of the typical pyfrost connection model. This was originally used to
+		# house the self.connection_state object before this became a formailzed
+		# variable.
+		self.stowaway = None
 		
 		self.user = None # If logged in, this is the connected user
 		
@@ -67,7 +83,7 @@ class ClientAgent:
 		
 		self.notes = []
 		
-		self.sharedata = ThreadSafeDict()
+		# self.sharedata = ThreadSafeDict()
 		
 		self.state = ClientAgent.CS_HAND
 	
@@ -390,7 +406,7 @@ class ClientAgent:
 
 		return True
 
-	def query(self, x):
+	def query(self, x, receive_string:bool=True):
 		"""Sends a message to the server agent and saves the reply string to 
 		self.reply. If the reply string is an error (begins with ERRROR:), the 
 		error code is saved as an int in self.error_code. """
@@ -403,7 +419,11 @@ class ClientAgent:
 			return False
 		
 		# Receive encrypted message and save to 'reply'
-		self.reply = self.recv_str()
+		if receive_string:
+			self.reply = self.recv_str()
+		else:
+			self.reply = self.recv()
+		
 		if self.reply is None:
 			self.log.error(f"query returned None. (msg: {x})")
 			return False
@@ -757,29 +777,26 @@ class ClientAgent:
 			return False
 		
 		# query database
-		if not self.query("SYNC"):
+		if not self.query("SYNC", receive_string=False):
 			return False
 		
 		# Get returned result
 		try:
-			sd = SyncData()
-			sd.from_utf8(self.reply.encode()) #TODO: This is repetative! query automatically decodes, but from_utf8 wants it encoded again!
+			sd_dict = msgpack.unpackb(self.reply, raw=False)
+			sd = from_serial_dict(sd_dict)
 		except Exception as e:
 			self.log.error(f"Failed to read SyncData ({e})")
 			self.log.debug(f"SyncData: {self.reply}")
 			return
 		
-		###### NOw we have the JSON data saved in JD. Turn it into a SyncData object #######
-		
-		# Transfer data from SyncData object to ClientAgent object
 		try:
 			self.notes = sd.notes
-			self.sharedata.unpack(sd.packed_sharedata)
+			self.lobby = sd.lobby
+			self.stowaway = sd.stowaway
+			self.connection_state = sd.connection_state
 		except Exception as e:
 			self.log.warning(f"Failed to populate ClientAgent from SyncData ({e})")
 			return
-		
-		#TODO: Can you sync ClientAgent state from ThreadSafeData state?
 
 def autosync(ca:ClientAgent):
 	''' Automatically syncs data between the server and client. '''
@@ -951,6 +968,7 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			# Execute sync
 			ca.sync()
 			
+			# Print messages if received
 			if len(ca.notes) > 0:
 				print(f"Messages:")
 			for note in ca.notes:
