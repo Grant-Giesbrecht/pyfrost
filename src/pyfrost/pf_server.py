@@ -1082,7 +1082,7 @@ def garbage_collect_thread_main():
 					
 					# Get local mutex
 					with lobby_locks[idx]:
-						if len(go.client_count()) == 0: # If game has no players, delete it
+						if go.client_count() == 0: # If game has no players, delete it
 							delete_this_index = True
 					if delete_this_index:
 						# logging.info(f"{garb_id_str}Deleting game [Lobby ID={go.id}]")
