@@ -1,3 +1,4 @@
+import argparse
 import socket
 import rsa
 import tabulate
@@ -768,6 +769,17 @@ class GenData(Packable):
 		# Metadata
 		self.metadata = {"created":str(datetime.now()), "error_str": ""}
 	
+	def get(self, key:str, default=None):
+		''' Returns the value for the specified key. If key does not
+		exist, returns defualt instead. If you want it to raise an error instead
+		of returning default, use direct access of `data`.
+		'''
+		
+		try:
+			return self.data[key]
+		except:
+			return default
+	
 	def has(self, key_list:list):
 		''' Verifies that the command has the following data fields.
 		
@@ -877,6 +889,36 @@ class GenCommand(GenData):
 	def auto_format(self):
 		''' Auto-formats command '''
 		self.command = self.command.upper()
+
+
+
+class ArgParseError(Exception):
+	pass
+
+class InternalArgumentParser(argparse.ArgumentParser):
+	'''
+	Modified version of ArgumentParser that is intended to be used in internal
+	CLIs. It raises an error if syntax errors occur, and will not print to the 
+	standard output. If given a LogPile object, it will log an error when syntax
+	errors occur.
+	'''
+	def __init__(self, log:plf.LogPile=None):
+		super().__init__()
+		
+		self.log = log
+	
+	def error(self, message):
+		
+		if self.log is not None:
+			self.log.error(f"Syntax error when parsing arguments. (>@LOCK{message}@UNLOCK<)")
+		
+		raise ArgParseError(message)
+
+	def exit(self, status=0, message=None):
+		if message:
+			raise ArgParseError(message)
+		raise ArgParseError(f"argparse exited with status {status}")
+
 
 class Message(Serializable):
 	""" Object saved to distribution inbox to be passed along to other clients."""
