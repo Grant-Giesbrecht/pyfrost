@@ -789,6 +789,10 @@ class ClientAgent:
 			self.log.debug(f"SyncData: {self.reply}")
 			return
 		
+		print(f"Lobby: {sd.lobby} (sd-type={type(sd)}, sd_dict-type={type(sd_dict)})", flush=True)
+		print(f"Connection-state: {sd.connection_state}")
+		print(f"Stowaway: {sd.stowaway}")
+		
 		try:
 			self.notes = sd.notes
 			self.lobby = sd.lobby
