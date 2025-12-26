@@ -614,13 +614,16 @@ class ServerAgent (threading.Thread):
 		# Prepare to exit
 		self.state = ServerAgent.TS_EXIT
 	
-	def create_message(self, user:str, msg:str):
+	def create_message(self, user:str, msg:str, sender:str=None):
 		""" Sends a message to the specified client 'user'. """
 		
 		global distribution_mutex, distribution_inbox
 		
 		# Create message object
-		new_msg = Message(self.auth_user, user, msg)
+		if sender is None:
+			new_msg = Message(self.auth_user, user, msg)
+		else:
+			new_msg = Message(sender, user, msg)
 		
 		# Add object to inbox
 		with distribution_mutex:
