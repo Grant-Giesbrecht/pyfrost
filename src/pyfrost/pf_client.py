@@ -38,10 +38,13 @@ class ClientAgent:
 	CS_LOGIN = 2 # At login/signup phase - not authorized
 	CS_MAIN = 3 # Connected to server, can perform primary operations
 	
-	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None):
+	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None, help_source:str=None):
 		
 		# Save log object
 		self.log = log
+		self.help_source = help_source
+		self.help_data = {}
+		self.load_help_data()
 		
 		self.sock = None
 		self.ipaddr = address
@@ -86,6 +89,24 @@ class ClientAgent:
 		# self.sharedata = ThreadSafeDict()
 		
 		self.state = ClientAgent.CS_HAND
+	
+	def load_help_data(self):
+		'''
+		Loads help data from the specified help file if possible.
+		'''
+		
+		if self.help_source is None:
+			self.log.warning(f"No help file source provided, cannot load help data.")
+			return False
+		
+		try:
+			with open(self.help_source) as f:
+				self.help_data = json.load(f)
+		except Exception as e:
+			self.log.error(f"Failed to read help from source >{self.help_source}<. ({e})")
+			return False
+		
+		return True
 	
 	def connect_socket(self):
 		""" Creates a socket and tries to join the server. Must be called
@@ -980,6 +1001,13 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
 			ca.notes = []
 		
+		elif cmd.upper() == "RELOADHELP":
+			
+			if ca.load_help_data():
+				print(f"\t{Fore.GREEN}Reloaded help data from disk.{Style.RESET_ALL}")
+			else:
+				print(f"\t{Fore.RED}Failed to reloade help data from disk.{Style.RESET_ALL}")
+		
 		elif cmd.upper() == "HELP":
 			
 			HELP_WIDTH = 80
@@ -1008,8 +1036,8 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				hstr += color2 + "-"*HELP_WIDTH + Style.RESET_ALL + "\n"
 				hstr += color2 + barstr(f"ALL COMMANDS", HELP_WIDTH, "-", pad=True) + Style.RESET_ALL + "\n\n"
 				
-				for cmd in help_data.keys():
-					desc = help_data[cmd]['description']
+				for cmd in ca.help_data.keys():
+					desc = ca.help_data[cmd]['description']
 					hstr += f"{TABC}{Fore.CYAN}{cmd}{color1}: {desc}\n"
 				
 				print(hstr)
@@ -1021,7 +1049,7 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			else:
 				hcmd = words[1].str.upper()
 			
-			cmd_list = help_data.keys()
+			cmd_list = ca.help_data.keys()
 			
 			if hcmd in cmd_list: # HCMD is a COMMAND name
 			
@@ -1033,12 +1061,12 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 					
 					# Description
 					hstr += f"{color2}Description:\n"
-					hstr += f"{color1}{TABC}" + help_data[hcmd]['description']+Style.RESET_ALL + "\n"
+					hstr += f"{color1}{TABC}" + ca.help_data[hcmd]['description']+Style.RESET_ALL + "\n"
 					
 					# Arguments
-					if len(help_data[hcmd]['arguments']) > 0:
+					if len(ca.help_data[hcmd]['arguments']) > 0:
 						hstr += f"{color2}\nArguments:\n"
-						for ar in help_data[hcmd]['arguments']:
+						for ar in ca.help_data[hcmd]['arguments']:
 							
 							arg_name = ar['name']
 							if ar['type'] in ["num", "str", "list", "cell", "list[cell]"]:
@@ -1054,9 +1082,9 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 							hstr += color1 + ar['description'] + "\n"
 					
 					# Flags
-					if len(help_data[hcmd]['flags']) > 0:
+					if len(ca.help_data[hcmd]['flags']) > 0:
 						hstr += f"{color2}\nFlags:\n"
-						for ar in help_data[hcmd]['flags']:
+						for ar in ca.help_data[hcmd]['flags']:
 							
 							if ar["short"] != "" and ar["long"] != "":
 								hstr += TABC + color1 + ar['short'] + f"{color4}," + color1 + ar["long"] + color4 + ": "
@@ -1069,9 +1097,9 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 							hstr += color1 + ar['description'] + "\n"
 					
 					# Examples
-					if len(help_data[hcmd]['examples']) > 0:
+					if len(ca.help_data[hcmd]['examples']) > 0:
 						hstr += f"{color2}\nExamples:\n"
-						for ex_no, ar in enumerate(help_data[hcmd]['examples']):
+						for ex_no, ar in enumerate(ca.help_data[hcmd]['examples']):
 							
 							hstr += f"{color1}{TABC}Ex {ex_no}:\n"
 							hstr += TABC + TABC + color4 + ">> " + color3 + ar['command'] + "\n"
@@ -1081,10 +1109,10 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 					
 					
 					# See also
-					if len(help_data[hcmd]['see_also']) > 0:
+					if len(ca.help_data[hcmd]['see_also']) > 0:
 						hstr += f"{color2}\nSee Also:\n{TABC}{color1}"
 						add_comma = False
-						for ar in help_data[hcmd]['see_also']:
+						for ar in ca.help_data[hcmd]['see_also']:
 							
 							if ar.upper() in cmd_list:
 								

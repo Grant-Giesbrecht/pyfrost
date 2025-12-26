@@ -43,14 +43,6 @@ ACCOUNT_ADMIN = 30
 ACCOUNT_STANDARD = 20
 ACCOUNT_LOW = 10
 
-# Open help.json
-help_data = {}
-try:
-	with open(os.path.join('Assets', 'help.json')) as f:
-		help_data = json.load(f)
-except Exception as e:
-	print(f"Failed to read help.json: {e}")
-
 # Initialize database access
 db_mutex = threading.Lock() # Create a mutex for the database
 
