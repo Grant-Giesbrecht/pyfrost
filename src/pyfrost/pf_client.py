@@ -789,13 +789,14 @@ class ClientAgent:
 			self.log.debug(f"SyncData: {self.reply}")
 			return
 		
-		print(f"Lobby: {sd.lobby} (sd-type={type(sd)}, sd_dict-type={type(sd_dict)})", flush=True)
+		print(f"Lobby-serialized: {sd.lobby_serialized} (sd-type={type(sd)}, sd_dict-type={type(sd_dict)})", flush=True)
 		print(f"Connection-state: {sd.connection_state}")
 		print(f"Stowaway: {sd.stowaway}")
 		
 		try:
 			self.notes = sd.notes
-			self.lobby = sd.lobby
+			self.lobby = from_serial_dict(sd.lobby_serialized)
+			print(f"Lobby: {self.lobby}")
 			self.stowaway = sd.stowaway
 			self.connection_state = sd.connection_state
 		except Exception as e:

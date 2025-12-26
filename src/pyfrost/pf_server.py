@@ -628,7 +628,7 @@ class ServerAgent (threading.Thread):
 		# Add object to inbox
 		with distribution_mutex:
 			distribution_inbox.append(new_msg)
-			
+		
 	def get_syncdata(self):
 		""" Saves all data the client needs to a SyncData object and 
 		returns it."""
@@ -644,9 +644,15 @@ class ServerAgent (threading.Thread):
 		
 		if self.lobby_mtx is not None:
 			with self.lobby_mtx:
-				sd.lobby = copy.deepcopy(self.lobby) #TODO: Make sure this works
+				
+				# By immedaitely serializing, you can skip the deepcopy, which does
+				# more work than neccesary by copying things that will not be serialized.
+				# deepcopy also can run into problems trying to copy things like a StateMachine
+				# which cannot be pickled. 
+				sd.lobby_serialized = to_serial_dict(self.lobby)
+				# sd.lobby = copy.deepcopy(self.lobby) #TODO: Make sure this works
 		else:
-			sd.lobby = None
+			sd.lobby_serialized = to_serial_dict(None)
 		sd.connection_state = self.connection_state
 		sd.stowaway = self.stowaway
 		
@@ -654,7 +660,7 @@ class ServerAgent (threading.Thread):
 			print(f"Lobby mutex is NONE")
 		else:
 			with self.lobby_mtx:
-				print(f"Lobby: {sd.lobby}", flush=True)
+				print(f"Lobby-serialized: {sd.lobby_serialized}", flush=True)
 		print(f"Connection-state: {sd.connection_state}")
 		print(f"Stowaway: {sd.stowaway}")
 		

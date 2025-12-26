@@ -939,14 +939,14 @@ class SyncData(Serializable):
 	""" This class is used to syncronize the server and clinets. 
 	"""
 	
-	__state_fields__ = ("notes", "lobby", "stowaway", "connection_state")
+	__state_fields__ = ("notes", "lobby_serialized", "stowaway", "connection_state")
 	
 	def __init__(self):
 		super().__init__()
 		
 		self.notes = [] # Notifications/messages for the user in unpacked form
 		
-		self.lobby = None # Lobby object in unpacked form
+		self.lobby_serialized = None # Lobby object in unpacked form
 		self.stowaway = None # Stowaway object
 		self.connection_state = None # Connection state object
 
