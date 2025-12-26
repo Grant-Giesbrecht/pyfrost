@@ -1250,12 +1250,15 @@ def server_stat_thread_main(window=None):
 
 class StatsWidget(QWidget):
 	
-	def __init__(self):
+	def __init__(self, address:str, port:int):
 		super().__init__()
+		
+		self.server_address = address
+		self.server_port = port
 		
 		self.grid = QGridLayout()
 		
-		self.title_label = QLabel("Server Stats:")
+		self.title_label = QLabel("Server Info:")
 		self.grid.addWidget(self.title_label, 0, 0, 1, 2)
 		self.title_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
 		
@@ -1272,17 +1275,31 @@ class StatsWidget(QWidget):
 		self.grid.addWidget(self.sdo_label_val, row, 1)
 		
 		row = 3
+		self.saddr_label = QLabel("Server Address:")
+		self.saddr_label_val = QLabel(f"{self.server_address}")
+		self.grid.addWidget(self.saddr_label, row, 0)
+		self.grid.addWidget(self.saddr_label_val, row, 1)
+		
+		row = 4
+		self.sport_label = QLabel("Server Port:")
+		self.sport_label_val = QLabel(f"{self.server_port}")
+		self.grid.addWidget(self.sport_label, row, 0)
+		self.grid.addWidget(self.sport_label_val, row, 1)
+		
+		
+		row_start = 5
+		row = row_start+0
 		self.actlogin_label = QLabel("Active Logins:")
 		self.grid.addWidget(self.actlogin_label, row, 0, 1, 2)
 		self.actlogin_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignHCenter)
 		
-		row = 4
+		row = row_start+1
 		self.users_label = QLabel("Logged-in Users:")
 		self.users_label_val = QLabel("--")
 		self.grid.addWidget(self.users_label, row, 0)
 		self.grid.addWidget(self.users_label_val, row, 1)
 		
-		row = 5
+		row = row_start+2
 		self.client_label = QLabel("Connected Clients:")
 		self.client_label_val = QLabel("--")
 		self.grid.addWidget(self.client_label, row, 0)
@@ -1294,12 +1311,13 @@ class StatsWidget(QWidget):
 		
 		self.active_label_val.setText(f"{num_threads}")
 		self.sdo_label_val.setText(f"{num_sdo}")
+		
 		self.users_label_val.setText(f"{num_users}")
 		self.client_label_val.setText(f"{num_clients}")
 
 class PyfrostServerGUI(QMainWindow):
 	
-	def __init__(self, log, app, gui_title:str, *args, **kwargs):
+	def __init__(self, log, app, gui_title:str, address, port, *args, **kwargs):
 		super().__init__(*args, **kwargs)
 		
 		# Save local variables
@@ -1309,7 +1327,7 @@ class PyfrostServerGUI(QMainWindow):
 		
 		self.grid = QtWidgets.QGridLayout()
 		
-		self.stats_widget = StatsWidget()
+		self.stats_widget = StatsWidget(address, port)
 		self.grid.addWidget(self.stats_widget, 0, 0)
 		
 		# Set the central widget
@@ -1331,7 +1349,9 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		
 		log = LogPile()
 		app = QtWidgets.QApplication(sys.argv)
-		main_window = PyfrostServerGUI(log, app, gui_title)
+		
+		ip_addr, port = sock.getsockname()
+		main_window = PyfrostServerGUI(log, app, gui_title, ip_addr, port)
 		app.setStyle("Fusion")
 		
 		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail, stowaway))
