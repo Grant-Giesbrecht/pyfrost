@@ -230,7 +230,7 @@ class ServerAgent (threading.Thread):
 			filt_msg = validate_message(gc.data['MSG'])
 				
 			# Create message and pass it along!
-			self.create_message(gc.data['RECIP'], filt_msg)
+			self.create_message(gc.data['RECIP'], filt_msg, category=Message.CTG_DIRECT_MESSAGE)
 			
 		else:
 			
@@ -614,16 +614,16 @@ class ServerAgent (threading.Thread):
 		# Prepare to exit
 		self.state = ServerAgent.TS_EXIT
 	
-	def create_message(self, user:str, msg:str, sender:str=None):
+	def create_message(self, user:str, msg:str, sender:str=None, category:str="uncategorized"):
 		""" Sends a message to the specified client 'user'. """
 		
 		global distribution_mutex, distribution_inbox
 		
 		# Create message object
 		if sender is None:
-			new_msg = Message(self.auth_user, user, msg)
+			new_msg = Message(self.auth_user, user, msg, category)
 		else:
-			new_msg = Message(sender, user, msg)
+			new_msg = Message(sender, user, msg, category)
 		
 		# Add object to inbox
 		with distribution_mutex:

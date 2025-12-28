@@ -915,15 +915,21 @@ class InternalArgumentParser(argparse.ArgumentParser):
 class Message(Serializable):
 	""" Object saved to distribution inbox to be passed along to other clients."""
 	
-	__state_fields__ = ("sender", "recipient", "msg", "timestamp_created")
+	# Suggested categories
+	CTG_DIRECT_MESSAGE = "cat_directmsg"
+	CTG_LOBBY_ALERTS = "cat_lobbyalert"
 	
-	def __init__(self, sender:str=None, recip:str=None, msg:str=None):
+	
+	__state_fields__ = ("sender", "recipient", "msg", "timestamp_created", "category")
+	
+	def __init__(self, sender:str=None, recip:str=None, msg:str=None, category:str=None):
 		
 		super().__init__()
 		
 		self.sender = sender
 		self.recipient = recip
 		self.msg = msg
+		self.category = category
 		
 		self.timestamp_created = str(datetime.now()) # Time when the message was received by the 
 

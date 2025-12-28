@@ -14,6 +14,7 @@ from typing import Callable
 from getpass import getpass
 
 from stardust.io import dict_summary
+from stardust.cli import SettingsCLI
 
 # Initialize database access
 db_mutex = threading.Lock() # Create a mutex for the database
@@ -22,13 +23,16 @@ ENC_FALSE = 100
 ENC_AUTO = 101
 ENC_TRUE = 102
 
-#TODO: Delete this?
-@dataclass
-class ClientOptions:
-	''' Stores options for the client agent that will get passed to both
-	commandline_main() and commandline_extended().'''
-	
-	cli_autosync = True
+DEFAULT_CLIENTAGENT_SETTINGS = {
+	"autosync-post-command": {"value": True, "desc": "Enable automatic syncs after sending commands to server."},
+}
+
+# @dataclass
+# class ClientOptions:
+# 	''' Stores options for the client agent that will get passed to both
+# 	commandline_main() and commandline_extended().'''
+# 	
+# 	cli_autosync = True
 
 class ClientAgent:
 	""" This class handles networking for the client. It communicates with the
@@ -40,10 +44,15 @@ class ClientAgent:
 	CS_LOGIN = 2 # At login/signup phase - not authorized
 	CS_MAIN = 3 # Connected to server, can perform primary operations
 	
-	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None, help_source:str=None, topic_source:str=None):
+	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None, help_source:str=None, topic_source:str=None, settings_source:str=None):
 		
 		# Save log object
 		self.log = log
+		
+		if settings_source is None:
+			self.settings_manager = SettingsCLI(None, False, DEFAULT_CLIENTAGENT_SETTINGS)
+		else:
+			self.settings_manager = SettingsCLI(settings_source, False)
 		
 		self.help_source = help_source
 		self.help_data = {}
@@ -886,6 +895,19 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 		and false otherwise.
 	
 	'''
+	
+	def sync_from_cli(ca:ClientAgent):
+		
+		# Execute sync
+		ca.sync()
+		
+		# Print messages if received
+		if len(ca.notes) > 0:
+			print(f"Messages:")
+		for note in ca.notes:
+			print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
+		ca.notes = []
+	
 	while True:
 		
 		bracket_color = Fore.LIGHTBLACK_EX
@@ -931,6 +953,10 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 		if len(words) < 1:
 			continue
 		cmd = words[0].str
+		
+		# Individual commands can set this to False if they want to disable
+		# autosync
+		autosync_eligable = True
 		
 		if cmd.upper() == "LOGIN":
 			un = input("  Username: ")
@@ -1018,9 +1044,9 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			# Send message
 			ca.message_user(words[1].str, msg)
 			
-			# Autosync
-			if opt.cli_autosync:
-				autosync(ca)
+			# # Autosync
+			# if opt.cli_autosync:
+			# 	autosync(ca)
 		
 		elif cmd.upper() == "NUMUSER":
 			
@@ -1032,16 +1058,10 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				print(f"\tNumber of users logged into server: {Fore.YELLOW}{nu}{Style.RESET_ALL}")
 			
 		elif cmd.upper() == "SYNC":
-					
-			# Execute sync
-			ca.sync()
 			
-			# Print messages if received
-			if len(ca.notes) > 0:
-				print(f"Messages:")
-			for note in ca.notes:
-				print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
-			ca.notes = []
+			# Run sync and print messages
+			sync_from_cli(ca)
+			autosync_eligable = False
 		
 		elif cmd.upper() == "RELOADHELP":
 			
@@ -1333,7 +1353,11 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 						print(hstr)
 					except Exception as e:
 						print(f"Corrupt help data for selected entry '{hcmd}' ({e}).")
-		
+		elif cmd.upper() == "CLIENTSETTINGS":
+			
+			# Run settings menu
+			ca.settings_manager.run()
+			
 		else:
 			
 			# Check if custom handler is implemented and recognizes command
@@ -1345,3 +1369,8 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			# If command wasn't found, print error
 			if not found_cmd:
 				print(f"    Failed to recognize command {Fore.BLUE}<{Fore.YELLOW}{cmd}{Fore.BLUE}>{Style.RESET_ALL}")
+		
+		# Autosync
+		if autosync_eligable and ca.settings_manager.get('autosync-post-command'):
+			sync_from_cli(ca)
+		
