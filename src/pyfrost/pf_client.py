@@ -13,7 +13,7 @@ from pyfrost.base import *
 from typing import Callable
 from getpass import getpass
 
-from stardust.io import dict_summary
+# from stardust.io import dict_summary
 from stardust.cli import SettingsCLI
 
 # Initialize database access
@@ -151,8 +151,6 @@ class ClientAgent:
 				self.topic_data = json.load(f)
 			
 			add_full_paths(self.topic_data)
-			
-			dict_summary(self.topic_data, verbose=2)
 		except Exception as e:
 			self.log.error(f"Failed to read topic help from source >{self.topic_source}<. ({e})")
 			return False
@@ -861,14 +859,14 @@ class ClientAgent:
 			self.log.debug(f"SyncData: {self.reply}")
 			return
 		
-		print(f"Lobby-serialized: {sd.lobby_serialized} (sd-type={type(sd)}, sd_dict-type={type(sd_dict)})", flush=True)
-		print(f"Connection-state: {sd.connection_state}")
-		print(f"Stowaway: {sd.stowaway}")
+		# print(f"Lobby-serialized: {sd.lobby_serialized} (sd-type={type(sd)}, sd_dict-type={type(sd_dict)})", flush=True)
+		# print(f"Connection-state: {sd.connection_state}")
+		# print(f"Stowaway: {sd.stowaway}")
 		
 		try:
 			self.notes = sd.notes
 			self.lobby = from_serial_dict(sd.lobby_serialized)
-			print(f"Lobby: {self.lobby}")
+			# print(f"Lobby: {self.lobby}")
 			self.stowaway = sd.stowaway
 			self.connection_state = sd.connection_state
 		except Exception as e:
@@ -888,7 +886,7 @@ def autosync(ca:ClientAgent):
 		print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
 	ca.notes = []
 
-def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Callable[[ClientAgent, ClientOptions, list ], None]=None) -> None:
+def commandline_main(ca:ClientAgent, commandline_extended:Callable[[ClientAgent, list ], None]=None) -> None:
 	'''
 	
 		commandline_extended is an optional argument. If provided, it should point to a function that will accept the clientagent, and the client options object, and the list of words. It should return a boolean value, returning true if it recognizes the command 
@@ -965,6 +963,8 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				print(f"{Fore.GREEN}Successfully logged in{Style.RESET_ALL}")
 			else:
 				print(f"{Fore.RED}Failed to log in{Style.RESET_ALL}")
+			
+			autosync_eligable = False
 		elif cmd.upper() == "SIGNUP":
 			un = input("  Username: ")
 			em = input("     Email: ")
@@ -982,6 +982,8 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				user = None
 			else:
 				print(f"{Fore.RED}Failed to log out.{Style.RESET_ALL}")
+			
+			autosync_eligable = False
 		elif cmd.upper() == "CLS" or cmd.upper() == "CLEAR":
 			if os.name == 'nt':
 				os.system("cls")
@@ -989,6 +991,8 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				os.system("clear")
 		elif cmd.upper() == "CONNECT":
 			ca.connect_socket()
+			
+			autosync_eligable = False
 		elif cmd.upper() == "EXIT":
 			if ca.exit():
 				print("Exited server")
@@ -1216,13 +1220,6 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			(topic_entry, explicitly_topic) = find_topic(hcmd)
 			# topic_path = words[1].str if len(words) > 1 else hcmd
 			
-			if topic_entry is not None:
-				dict_summary(topic_entry, verbose=2)
-			else:
-				print(f"topic_entry=None")
-			print(f"hcmd = {hcmd}")
-			print(f"in-list: {hcmd in cmd_list}")
-			
 			if (hcmd in cmd_list) and (not explicitly_topic): # HCMD is a COMMAND name
 			
 				## Print help data:
@@ -1362,7 +1359,7 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			
 			# Check if custom handler is implemented and recognizes command
 			if commandline_extended is not None:
-				found_cmd = commandline_extended(ca, opt, words)
+				found_cmd = commandline_extended(ca, words)
 			else:
 				found_cmd = False
 			

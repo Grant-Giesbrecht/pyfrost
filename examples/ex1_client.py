@@ -23,7 +23,7 @@ else:
 
 
 #TODO: Add example with GenCommand
-def custom_func(ca:ClientAgent, opt:ClientOptions, words:list) -> bool:
+def custom_func(ca:ClientAgent, words:list) -> bool:
 	''' This will process command line input. Words will contain the command line data.
 	'''
 	

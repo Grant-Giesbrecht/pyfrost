@@ -656,13 +656,13 @@ class ServerAgent (threading.Thread):
 		sd.connection_state = self.connection_state
 		sd.stowaway = self.stowaway
 		
-		if self.lobby_mtx is None:
-			print(f"Lobby mutex is NONE")
-		else:
-			with self.lobby_mtx:
-				print(f"Lobby-serialized: {sd.lobby_serialized}", flush=True)
-		print(f"Connection-state: {sd.connection_state}")
-		print(f"Stowaway: {sd.stowaway}")
+		# if self.lobby_mtx is None:
+		# 	print(f"Lobby mutex is NONE")
+		# else:
+		# 	with self.lobby_mtx:
+		# 		print(f"Lobby-serialized: {sd.lobby_serialized}", flush=True)
+		# print(f"Connection-state: {sd.connection_state}")
+		# print(f"Stowaway: {sd.stowaway}")
 		
 		# # Populate sharedata
 		# if self.sharedata_mutex is None:
