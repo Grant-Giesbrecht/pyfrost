@@ -1,0 +1,75 @@
+{
+	"DUMMY": {
+		"description": "Delete me!",
+		"body":[
+			{
+				"type": "paragraph",
+				"data": "Dummy text."
+			}
+		],
+		"see_also": ["RULES"],
+		"subtopics": []
+	},
+	"RULES": {
+		"description": "Describes basic game rules.",
+		"body":[
+			{
+				"type": "paragraph",
+				"data": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut sodales dui risus, sed scelerisque dolor volutpat id.\n\n Fusce euismod magna sed orci pulvinar, ut scelerisque metus aliquet. \n\tProin \n\tultrices \n\tcondimentum\n lobortis. Pellentesque sapien purus, congue nec dignissim ac, aliquet et lectus. Duis vel ligula placerat nisl vestibulum dapibus. Aliquam vel massa eu lectus tempor ultrices. Cras quis odio aliquam felis posuere vulputate quis et odio. Aenean orci leo, tristique sit amet lorem ut, consectetur viverra arcu."
+			}
+		],
+		"see_also": [],
+		"subtopics": {
+			"OCCUPATION": {
+				"description": "How planet occupation is deceided",
+				"body":[
+					{
+						"type": "paragraph",
+						"data": "Income is distributed at the beginning of each turn. Each planet occupied by a faction"
+					}
+				],
+				"see_also": [],
+				"subtopics": {
+					"QUORUM": {
+						"description": "How many units are required to hold a planet.",
+						"body":[
+							{
+								"type": "paragraph",
+								"data": "You need X number of units to meet quorum requirements."
+							}
+						],
+						"see_also": [],
+						"subtopics": []
+					}
+				}
+			},
+			"INCOME": {
+				"description": "How Does Income Work?",
+				"body":[
+					{
+						"type": "paragraph",
+						"data": "Income is distributed at the beginning of each turn. Each planet occupied by a faction"
+					}
+				],
+				"see_also": [],
+				"subtopics": {}
+			}
+		}
+		
+	},
+	"HELP-SYNTAX": {
+		"description": "Guide to understanding integrating help service syntax.",
+		"body": [
+			{
+				"type": "paragraph",
+				"data": "Argument Format:\n\nNon-optional arguments are surrounded by angle brackets '<>'. Optional arguments are surrounded by parenthesis '()'. "
+			},
+			{
+				"type": "paragraph",
+				"data": "Data Format:\n\nCells are specified in square brackets, with q and r separated by a comma, like so '[4, -3]'. Lists of cells are surrounded by a second set of brackets and also separated by commas, like so '[[4, -3], [12, 0]]'."
+			}
+		],
+		"see_also": ["help"],
+		"subtopics": {}
+	}
+}

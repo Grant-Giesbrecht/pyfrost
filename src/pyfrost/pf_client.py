@@ -13,6 +13,8 @@ from pyfrost.base import *
 from typing import Callable
 from getpass import getpass
 
+from stardust.io import dict_summary
+
 # Initialize database access
 db_mutex = threading.Lock() # Create a mutex for the database
 
@@ -38,13 +40,18 @@ class ClientAgent:
 	CS_LOGIN = 2 # At login/signup phase - not authorized
 	CS_MAIN = 3 # Connected to server, can perform primary operations
 	
-	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None, help_source:str=None):
+	def __init__(self, log:LogPile, address:str=None, port:int=None, connection_state=None, stowaway=None, help_source:str=None, topic_source:str=None):
 		
 		# Save log object
 		self.log = log
+		
 		self.help_source = help_source
 		self.help_data = {}
 		self.load_help_data()
+		
+		self.topic_source = topic_source
+		self.topic_data = {}
+		self.load_topic_data()
 		
 		self.sock = None
 		self.ipaddr = address
@@ -104,6 +111,41 @@ class ClientAgent:
 				self.help_data = json.load(f)
 		except Exception as e:
 			self.log.error(f"Failed to read help from source >{self.help_source}<. ({e})")
+			return False
+		
+		return True
+	
+	def load_topic_data(self):
+		'''
+		Loads topic data from the specified help file if possible.
+		'''
+		
+		def add_full_paths(node:dict, prefix:str=""):
+			"""Recursively add a slash-delimited full_path to each topic entry."""
+			if not isinstance(node, dict):
+				return
+			for name, data in node.items():
+				if not isinstance(data, dict):
+					continue
+				full_path = f"TOPICS/{name}" if prefix == "" else f"{prefix}/{name}"
+				data["full_path"] = full_path
+				subtopics = data.get("subtopics")
+				if isinstance(subtopics, dict):
+					add_full_paths(subtopics, full_path)
+		
+		if self.topic_source is None:
+			self.log.warning(f"No topic help file source provided, cannot load topic help data.")
+			return False
+		
+		try:
+			with open(self.topic_source) as f:
+				self.topic_data = json.load(f)
+			
+			add_full_paths(self.topic_data)
+			
+			dict_summary(self.topic_data, verbose=2)
+		except Exception as e:
+			self.log.error(f"Failed to read topic help from source >{self.topic_source}<. ({e})")
 			return False
 		
 		return True
@@ -1006,7 +1048,12 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			if ca.load_help_data():
 				print(f"\t{Fore.GREEN}Reloaded help data from disk.{Style.RESET_ALL}")
 			else:
-				print(f"\t{Fore.RED}Failed to reloade help data from disk.{Style.RESET_ALL}")
+				print(f"\t{Fore.RED}Failed to reload help data from disk.{Style.RESET_ALL}")
+			
+			if ca.load_topic_data():
+				print(f"\t{Fore.GREEN}Reloaded topic-help data from disk.{Style.RESET_ALL}")
+			else:
+				print(f"\t{Fore.RED}Failed to reload topic-help data from disk.{Style.RESET_ALL}")
 		
 		elif cmd.upper() == "HELP":
 			
@@ -1021,14 +1068,18 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 			hstr = ""
 			
 			list_commands = False
+			list_topics = False
 			
 			# Check for flags
 			print_long = False
 			if len(words) > 1:
 				for tk in words:
-					if tk.str == "-l" or tk.str == "--list":
+					tks = tk.str.lower()
+					if tks == "-l" or tks == "--list":
 						list_commands = True
-
+					if tks == "-t" or tks == "--topic":
+						list_topics = True
+			
 			
 			if list_commands:
 				
@@ -1043,6 +1094,79 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				print(hstr)
 				continue
 			
+			def print_topic_level(name, data, indent:int=1, max_indent:int=4):
+				
+				tab_level = TABC*indent
+				
+				desc = data['description']
+				print(f"{tab_level}{Fore.CYAN}{name}{color1}: {desc}{Style.RESET_ALL}")
+				
+				# Handle subtopics
+				if 'subtopics' in data.keys() and len(data['subtopics']) > 0:
+					
+					# Expand...
+					if indent < max_indent:
+						for st in data['subtopics'].keys():
+							print_topic_level(st, data['subtopics'][st], indent+1, max_indent)
+					else:
+						print(f"{TABC*(indent+1)}...")
+
+			def find_topic(path:str):
+				"""Returns the topic node for a slash-delimited path (e.g. RULES/QUORUM).
+				Also resolves matches that omit leading sections (e.g. OCCUPATION/QUORUM)."""
+				
+				def match_from_node(node, segments, idx):
+					"""Walk down from the current node following remaining segments."""
+					if idx == len(segments):
+						return node
+					
+					subtopics = node.get("subtopics", {})
+					if not isinstance(subtopics, dict):
+						return None
+					
+					next_seg = segments[idx]
+					if next_seg not in subtopics:
+						return None
+					
+					return match_from_node(subtopics[next_seg], segments, idx+1)
+				
+				def search_topics(topic_map, segments, idx):
+					"""Depth-first search for a path starting at any node."""
+					for name, data in topic_map.items():
+						# Try matching starting at this node
+						if name == segments[idx]:
+							match = match_from_node(data, segments, idx+1)
+							if match is not None:
+								return match
+						
+						# Continue searching deeper even if the current name doesn't match
+						subtopics = data.get("subtopics", {})
+						if isinstance(subtopics, dict):
+							match = search_topics(subtopics, segments, idx)
+							if match is not None:
+								return match
+					
+					return None
+				
+				segments = [seg.upper() for seg in path.split("/") if seg != ""]
+				if len(segments) == 0:
+					return None
+				
+				return search_topics(ca.topic_data, segments, 0)
+			
+			if list_topics:
+				
+				# title
+				hstr += color2 + "-"*HELP_WIDTH + Style.RESET_ALL + "\n"
+				hstr += color2 + barstr(f"ALL TOPICS", HELP_WIDTH, "-", pad=True) + Style.RESET_ALL + "\n\n"
+				
+				print(hstr)
+				
+				for cmd in ca.topic_data.keys():
+					print_topic_level(cmd, ca.topic_data[cmd], 1, 4)
+				
+				continue
+			
 			# Check for number of arguments
 			if len(words) < 2:
 				hcmd = "HELP"
@@ -1050,6 +1174,13 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				hcmd = words[1].str.upper()
 			
 			cmd_list = ca.help_data.keys()
+			topic_entry = find_topic(hcmd)
+			topic_path = words[1].str if len(words) > 1 else hcmd
+			
+			if topic_entry is not None:
+				dict_summary(topic_entry, verbose=2)
+			else:
+				print(f"topic_entry=None")
 			
 			if hcmd in cmd_list: # HCMD is a COMMAND name
 			
@@ -1121,6 +1252,54 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 								
 								hstr += ar
 								add_comma = True
+					
+					print(hstr)
+				except Exception as e:
+					print(f"Corrupt help data for selected entry '{hcmd}' ({e}).")
+					
+		elif topic_entry is not None: # HCMD is a TOPIC name
+			
+				## Print help data:
+				try:
+					# title
+					hstr += color2 + "-"*HELP_WIDTH + Style.RESET_ALL + "\n"
+					hstr += color2 + barstr(f"{topic_path} Help", HELP_WIDTH, "-", pad=True) + Style.RESET_ALL + "\n\n"
+					
+					# Description
+					hstr += f"{color2}Description:\n"
+					hstr += f"{color1}{TABC}" + topic_entry.get('description', '')+Style.RESET_ALL + "\n"
+					
+					# Body
+					body = topic_entry.get('body', [])
+					if len(body) > 0:
+						hstr += f"{color2}\nDetails:\n"
+						for section in body:
+							text = section.get('data', '')
+							section_type = section.get('type', 'paragraph')
+							if section_type != "paragraph":
+								hstr += f"{color4}{TABC}[{section_type}]{Style.RESET_ALL}\n"
+							hstr += f"{color1}{TABC}{text}{Style.RESET_ALL}\n\n"
+					
+					# Subtopics
+					subtopics = topic_entry.get('subtopics', {})
+					if isinstance(subtopics, dict) and len(subtopics) > 0:
+						hstr += f"{color2}Subtopics:\n"
+						for name, data in subtopics.items():
+							desc = data.get('description', '')
+							hstr += f"{TABC}{Fore.CYAN}{name}{color1}: {desc}\n"
+					
+					# See also
+					if len(topic_entry.get('see_also', [])) > 0:
+						hstr += f"{color2}\nSee Also:\n{TABC}{color1}"
+						add_comma = False
+						for ar in topic_entry.get('see_also', []):
+							
+							if add_comma:
+								
+								hstr += ", "
+							
+							hstr += ar
+							add_comma = True
 					
 					print(hstr)
 				except Exception as e:
