@@ -1,0 +1,269 @@
+{
+	"DUMMY":{
+		"description": "Does nothing",
+		"arguments": [
+			{
+				"name": "nothing1",
+				"type": "num",
+				"description": "Does nothing",
+				"optional": false
+			},
+			{
+				"name": "nothing2",
+				"type": "list",
+				"description": "Also does nothing",
+				"optional": true
+			}
+		],
+		"flags": [
+			{
+				"short": "-p",
+				"long": "-pnothing",
+				"description": "Does nothing"
+			}
+		],
+		"examples": [
+			{
+				"command": "dummy command",
+				"description": "What the command does"
+			}
+		],
+		"active_only": true,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": ["DUMMY"]
+	},
+	"LOGIN":{
+		"description": "Login to the server. Prompts for account credentials.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["LOGIN"],
+		"see_also": ["LOGOUT", "SIGNUP"]
+	},
+	"SIGNUP":{
+		"description": "Create an account on the server. Prompts for account details.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["LOGIN"],
+		"see_also": ["LOGIN", "LOGOUT"]
+	},
+	"EXIT":{
+		"description": "Exits the server and closes the client.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": ["LOGIN"]
+	},
+	"CLEAR":{
+		"description": "Clears the screen. Alias of 'CLS'",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"CLS":{
+		"description": "Clears the screen. Alias of 'CLEAR'",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"CONNECT":{
+		"description": "Initiates handshake with the server, establishing an encrypted connection via RSA and AES standards.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE"],
+		"see_also": []
+	},
+	"VIEWDB":{
+		"description": "Displays user database contents.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": true,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["SHUTDOWN", "DELUSR"]
+	},
+	"SHUTDOWN":{
+		"description": "Shuts down the server.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": true,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["VIEWDB", "DELUSR"]
+	},
+	"DELUSR":{
+		"description": "Deletes a user's account from the database.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": true,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["SHUTDOWN", "VIEWDB"]
+	},
+	"NEWLOBBY":{
+		"description": "Creates a new lobby.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["JOINLOBBY", "LOBBYINFO"]
+	},
+	"JOINLOBBY":{
+		"description": "Joins an existing game lobby.",
+		"arguments": [
+			{
+				"name": "lobby-id",
+				"type": "num",
+				"description": "Lobby ID",
+				"optional": false
+			},
+			{
+				"name": "lobby-pwd",
+				"type": "str",
+				"description": "Lobby password",
+				"optional": false
+			}
+		],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["NEWLOBBY", "LOBBYINFO"]
+	},
+	"MSGUSR":{
+		"description": "Sends an encrypted message to a user.",
+		"arguments": [
+			{
+				"name": "username",
+				"type": "str",
+				"description": "Username of recipient",
+				"optional": false
+			},
+			{
+				"name": "message",
+				"type": "str",
+				"description": "Message to send. Must be enclosed in double quotes (\")",
+				"optional": false
+			}
+		],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"LOBBYINFO":{
+		"description": "Shows information about the lobby the user is currently in.",
+		"arguments": [],
+		"flags": [
+			{
+				"short": "-l",
+				"long": "",
+				"description": "Show additional information."
+			}
+		],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["GAME"],
+		"see_also": []
+	},
+	"SYNC":{
+		"description": "Syncs the local state with data from the server.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": true,
+		"host_only": false,
+		"context": ["MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"RELOADHELP":{
+		"description": "Reloads help data from disk.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["GAME", "LOBBY", "LOGIN", "MAIN", "OFFLINE", "RESULTS"],
+		"see_also": ["HELP"]
+	},
+	"HELP":{
+		"description": "Displays help topics in the integrated help system.",
+		"arguments": [
+			{
+				"name": "page-name",
+				"type": "str",
+				"description": "Command or topic whose help data to access",
+				"optional": true
+			}
+		],
+		"flags": [
+			{
+				"short": "-",
+				"long": "--list",
+				"description": "List all commands."
+			}
+		],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"CLIENTSETTINGS":{
+		"description": "Opens CLI to edit ClientAgent settings.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	}
+}

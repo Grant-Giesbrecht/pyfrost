@@ -15,6 +15,8 @@ from dataclasses import dataclass
 import time
 from typing import Callable
 from pyfrost.base import *
+import random
+import string
 
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtWidgets import QWidget, QLabel, QGridLayout, QMainWindow
@@ -118,7 +120,7 @@ class ServerAgent (threading.Thread):
 	TS_MAIN = 3 # Client authorized, at main loop
 	TS_EXIT = 0 # Exit main loop, close thread
 	
-	def __init__(self, sock, thread_id, log:LogPile, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, connection_state=None, lobby_pair:tuple=None, stowaway=None):
+	def __init__(self, sock, thread_id, log:LogPile, lobby_generator:Callable[..., LobbyTemplate], query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, connection_state=None, lobby_pair:tuple=None, stowaway=None):
 		'''
 		lobby_pair is a tuple and expects a Serializable lobby object (in global/shared memory) as
 			the first element, and a mutex (also in global/shared memeory) in the second index.
@@ -168,6 +170,7 @@ class ServerAgent (threading.Thread):
 		self.enforce_password_rules = True
 		self.send_func = send_func # Returns None if command is not recognized, otherwise return True or False for execution success status.
 		self.query_func = query_func # Return NOne if not recognized, otehrwise return a GenData object
+		self.lobby_generator = lobby_generator # Function that runs when NEWLOBBY is called. It is defined by the user-application and creates a Lobby of the proper (custom) type and initilizes it.
 		
 		# Socket object from connecting to client program
 		self.sock = sock
@@ -261,6 +264,9 @@ class ServerAgent (threading.Thread):
 		set to False and you can add text to the error variable. You can also	populate any error register (game.error_message)..
 		'''
 		
+		global lobby_id_mutex, next_lobby_id
+		global lobby_master_lock, lobby_objects, lobby_locks
+		
 		# Initialize error GD
 		err_gd = GenData({"STATUS": False})
 		
@@ -280,6 +286,43 @@ class ServerAgent (threading.Thread):
 			# Return response to client
 			gdata = GenData({"NUMUSER":num_unique, "STATUS": True})
 			return gdata
+		
+		elif gc.command == "NEWLOBBY":
+			
+			# Get server-unique lobby ID
+			with lobby_id_mutex:
+				id = next_lobby_id
+				next_lobby_id += 1
+				if next_lobby_id > 1e6:
+					next_lobby_id = 0
+			
+			# Generate a random password
+			password = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+			
+			# Create lobby using user function
+			try:
+				ng = self.lobby_generator(self, id, password, {}, gc)
+			except Exception as e:
+				self.log.error(f"Failed to create new lobby. An error occurred while executing user function provided for >ServerAgent.lobby_generator<. ({e})")
+				return err_gd
+			
+			# Create a lock
+			nm = threading.Lock()
+			
+			# Add to shared objects
+			with lobby_master_lock:
+				lobby_objects.append(ng)
+				lobby_locks.append(nm)
+			
+			# Add pointer to lobby and lobby lock to SA
+			self.lobby = ng
+			self.lobby_mtx = nm
+			
+			self.log.info(f"Created new lobby(id={id}). Adding user >{self.auth_user}<.")
+			
+			# Reply to client
+			data = GenData({"lobby-id":id, 'password':password})
+			return data
 		
 		else:
 			
@@ -1337,7 +1380,7 @@ class PyfrostServerGUI(QMainWindow):
 		
 		self.show()
 
-def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
+def server_main(sock:socket, lobby_generator:Callable[..., LobbyTemplate], query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, use_gui:bool=True, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
 	'''
 	
 	stowaway: Optional class type that, if provided, will be created inside each serverAgent. This provides
@@ -1354,7 +1397,7 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 		main_window = PyfrostServerGUI(log, app, gui_title, ip_addr, port)
 		app.setStyle("Fusion")
 		
-		server_thread = threading.Thread(target=server_main_loop, args=(sock, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail, stowaway))
+		server_thread = threading.Thread(target=server_main_loop, args=(sock, lobby_generator, query_func, send_func, sa_init_func, main_window, gui_title, loglevel, detail, stowaway))
 		server_thread.daemon = True
 		server_thread.start()
 		
@@ -1362,9 +1405,9 @@ def server_main(sock:socket, query_func:Callable[..., None]=None, send_func:Call
 	
 	else:
 		
-		server_main_loop(sock, query_func, send_func, sa_init_func, loglevel=loglevel, detail=detail)
+		server_main_loop(sock, lobby_generator, query_func, send_func, sa_init_func, loglevel=loglevel, detail=detail)
 
-def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
+def server_main_loop(sock:socket, lobby_generator:Callable[..., LobbyTemplate], query_func:Callable[..., None]=None, send_func:Callable[..., None]=None, sa_init_func:Callable[..., None]=None, main_window=None, gui_title:str="Pyfrost Server Status", loglevel:str="WARNING", detail:bool=False, stowaway=None):
 	''' Main loop that spawns new threads, each with a new ServerAgent, to handle incoming client
 	connections. Socket is the socket new clients will connect to. Functions can be provided to add
 	GenCOmmand handlers for the server, or to initialize the ServerAgents per the users needs (such as
@@ -1434,7 +1477,7 @@ def server_main_loop(sock:socket, query_func:Callable[..., None]=None, send_func
 			new_so = None
 		
 		# Create server agent class
-		sa = ServerAgent(client_socket, next_thread_id, new_log, query_func=query_func, send_func=send_func, stowaway=new_so)
+		sa = ServerAgent(client_socket, next_thread_id, new_log, lobby_generator, query_func=query_func, send_func=send_func, stowaway=new_so)
 		sa.enforce_password_rules = False # Allow weak passwords
 		
 		# Call initialization function if provided

@@ -98,7 +98,23 @@ def valid_email(email:str):
 	
 	regex = r'^[a-z0-9]+[\._]?[a-z0-9]+[@]\w+[.]\w+$'
 	return re.match(regex, email)
+
+class LobbyTemplate(Serializable):
 	
+	def __init__(self):
+		super().__init__()
+	
+	@abstractmethod
+	def client_count(self)->int:
+		pass
+	
+	@abstractmethod
+	def add_user(self, name:str, permissions:list) ->bool:
+		pass
+	
+	@abstractmethod
+	def remove_user(self, name:str):
+		pass
 
 class PermissionsTable:
 	""" Describes different types of actions, and characterizes which actions
