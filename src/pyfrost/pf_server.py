@@ -217,6 +217,9 @@ class ServerAgent (threading.Thread):
 		populate any error register (game.error_message) and return True or False.
 		'''
 		
+		global lobby_id_mutex, next_lobby_id
+		global lobby_master_lock, lobby_objects, lobby_locks
+		
 		logging.debug(f"Executing GenCommand: [{gc.command}], data={gc.data}, meta={gc.metadata}")
 		
 		if gc.command == "MSGUSR":
@@ -234,7 +237,80 @@ class ServerAgent (threading.Thread):
 				
 			# Create message and pass it along!
 			self.create_message(gc.data['RECIP'], filt_msg, category=Message.CTG_DIRECT_MESSAGE)
+		
+		elif gc.command == "JOINLOBBY":
 			
+			
+			# Get lobby-id from GC
+			id_str = gc.get('lobby-id')
+			try:
+				id = int(id_str)
+			except Exception as e:
+				self.log.error(f"Invalid lobby id ({e}). JOINLOBBY aborting.")
+				return False
+			
+			# Get password from gencommand
+			pwd = gc.get('pwd')
+			if id is None or pwd is None:
+				self.log.error(f"Invalid data from GenCommand-Send. JOINLOBBY aborting.")
+				return False
+			
+			self.log.debug(f"Server received request by user:{self.auth_user} to join lobby (id={id})")
+			
+			# Find lobby
+			#
+			# TODO: This in incredibly slow if this were scaled up. There
+			# has to be a better way of doing this
+			with lobby_master_lock:
+				for idx, lo in enumerate(lobby_objects):
+					with lobby_locks[idx]:
+						if lo.lobby_id == id:
+							
+							# Check for password match
+							if lo.password == pwd:
+								
+								# Attempt to add user
+								if not lo.add_user(self.auth_user, []):
+									self.log.warning(f"Denying entry for user:{self.auth_user} to lobby (id={id}). Lobby refused to add additional users.")
+								else:
+									self.log.info(f"Granting entry for user:{self.auth_user} to lobby (id={id}).")
+								
+								# Assign lobby to ServerAgent
+								self.lobby = lo
+								self.lobby_mtx = lobby_locks[idx]
+								return True
+							else:
+								self.log.warning(f"Denying entry for user:{self.auth_user} to lobby (id={id}). Invalid password.")
+								return False
+			
+			self.log.warning(f"Failed to find lobby with id={id}")
+			return False
+		
+		elif gc.command == "LEAVELOBBY":
+			
+			self.log.debug(f"Server received request by user:{self.auth_user} to leave current lobby")
+			
+			# Abort if no lobby
+			if self.lobby_mtx is None:
+				self.log.info(f"User >{self.auth_user}< is not in a lobby; cannot leave lobby.")
+				return False
+			
+			# Tell lobby user is leaving
+			with self.lobby_mtx:
+				status = self.lobby.remove_user(self.auth_user)
+			
+			if status:
+				self.log.debug(f"Successfully removed user from lobby.")
+			else:
+				self.log.warning(f"Lobby was not able to remove user!")
+				return False
+			
+			# Remove lobby from user
+			self.lobby = None
+			self.lobby_mtx = None
+			
+			return True
+		
 		else:
 			
 			# See if command is recognized in user extension function
