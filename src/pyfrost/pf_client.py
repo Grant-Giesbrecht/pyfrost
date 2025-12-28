@@ -1113,7 +1113,11 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 
 			def find_topic(path:str):
 				"""Returns the topic node for a slash-delimited path (e.g. RULES/QUORUM).
-				Also resolves matches that omit leading sections (e.g. OCCUPATION/QUORUM)."""
+				Also resolves matches that omit leading sections (e.g. OCCUPATION/QUORUM).
+				
+				Returns:
+					tuple: index 0: node that matched or None if nothing found. Index 1: bool indicating if this explicitly a topic search.
+				"""
 				
 				def match_from_node(node, segments, idx):
 					"""Walk down from the current node following remaining segments."""
@@ -1148,11 +1152,26 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 					
 					return None
 				
+				# Break into segments
 				segments = [seg.upper() for seg in path.split("/") if seg != ""]
-				if len(segments) == 0:
-					return None
 				
-				return search_topics(ca.topic_data, segments, 0)
+				# Return if no segments present
+				if len(segments) == 0:
+					return (None, False)
+				
+				# If TOPIC or TOPICS is first segment, remove, and indicate this is explictly
+				# a topic and not a command.
+				is_explicit = False
+				if (segments[0] == 'TOPICS') or (segments[0] == 'TOPIC'):
+					is_explicit = True
+					segments = segments[1:]
+					
+					# Return if no segments present
+					if len(segments) == 0:
+						return (None, True)
+				
+				# Perform search
+				return (search_topics(ca.topic_data, segments, 0), is_explicit)
 			
 			if list_topics:
 				
@@ -1174,15 +1193,17 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				hcmd = words[1].str.upper()
 			
 			cmd_list = ca.help_data.keys()
-			topic_entry = find_topic(hcmd)
-			topic_path = words[1].str if len(words) > 1 else hcmd
+			(topic_entry, explicitly_topic) = find_topic(hcmd)
+			# topic_path = words[1].str if len(words) > 1 else hcmd
 			
 			if topic_entry is not None:
 				dict_summary(topic_entry, verbose=2)
 			else:
 				print(f"topic_entry=None")
+			print(f"hcmd = {hcmd}")
+			print(f"in-list: {hcmd in cmd_list}")
 			
-			if hcmd in cmd_list: # HCMD is a COMMAND name
+			if (hcmd in cmd_list) and (not explicitly_topic): # HCMD is a COMMAND name
 			
 				## Print help data:
 				try:
@@ -1257,53 +1278,61 @@ def commandline_main(ca:ClientAgent, opt:ClientOptions, commandline_extended:Cal
 				except Exception as e:
 					print(f"Corrupt help data for selected entry '{hcmd}' ({e}).")
 					
-		elif topic_entry is not None: # HCMD is a TOPIC name
-			
-				## Print help data:
-				try:
-					# title
-					hstr += color2 + "-"*HELP_WIDTH + Style.RESET_ALL + "\n"
-					hstr += color2 + barstr(f"{topic_path} Help", HELP_WIDTH, "-", pad=True) + Style.RESET_ALL + "\n\n"
+			elif topic_entry is not None: # HCMD is a TOPIC name
 					
-					# Description
-					hstr += f"{color2}Description:\n"
-					hstr += f"{color1}{TABC}" + topic_entry.get('description', '')+Style.RESET_ALL + "\n"
+					print("Printing topic data")
 					
-					# Body
-					body = topic_entry.get('body', [])
-					if len(body) > 0:
-						hstr += f"{color2}\nDetails:\n"
-						for section in body:
-							text = section.get('data', '')
-							section_type = section.get('type', 'paragraph')
-							if section_type != "paragraph":
-								hstr += f"{color4}{TABC}[{section_type}]{Style.RESET_ALL}\n"
-							hstr += f"{color1}{TABC}{text}{Style.RESET_ALL}\n\n"
 					
-					# Subtopics
-					subtopics = topic_entry.get('subtopics', {})
-					if isinstance(subtopics, dict) and len(subtopics) > 0:
-						hstr += f"{color2}Subtopics:\n"
-						for name, data in subtopics.items():
-							desc = data.get('description', '')
-							hstr += f"{TABC}{Fore.CYAN}{name}{color1}: {desc}\n"
-					
-					# See also
-					if len(topic_entry.get('see_also', [])) > 0:
-						hstr += f"{color2}\nSee Also:\n{TABC}{color1}"
-						add_comma = False
-						for ar in topic_entry.get('see_also', []):
-							
-							if add_comma:
+					## Print help data:
+					try:
+						
+						short_name = topic_entry['full_path'].rsplit("/", 1)[-1]
+						full_name = topic_entry['full_path']
+						
+						# title
+						hstr += color2 + "-"*HELP_WIDTH + Style.RESET_ALL + "\n"
+						hstr += color2 + barstr(f"{short_name} Help", HELP_WIDTH, "-", pad=True) + Style.RESET_ALL + "\n"
+						hstr += f"{color1}Full name: {full_name}\n\n"
+						
+						# Description
+						hstr += f"{color2}Description:\n"
+						hstr += f"{color1}{TABC}" + topic_entry.get('description', '')+Style.RESET_ALL + "\n"
+						
+						# Body
+						body = topic_entry.get('body', [])
+						if len(body) > 0:
+							hstr += f"{color2}\nDetails:\n"
+							for section in body:
+								text = section.get('data', '')
+								section_type = section.get('type', 'paragraph')
+								if section_type != "paragraph":
+									hstr += f"{color4}{TABC}[{section_type}]{Style.RESET_ALL}\n"
+								hstr += f"{color1}{TABC}{text}{Style.RESET_ALL}\n\n"
+						
+						# Subtopics
+						subtopics = topic_entry.get('subtopics', {})
+						if isinstance(subtopics, dict) and len(subtopics) > 0:
+							hstr += f"{color2}Subtopics:\n"
+							for name, data in subtopics.items():
+								desc = data.get('description', '')
+								hstr += f"{TABC}{Fore.CYAN}{name}{color1}: {desc}\n"
+						
+						# See also
+						if len(topic_entry.get('see_also', [])) > 0:
+							hstr += f"{color2}\nSee Also:\n{TABC}{color1}"
+							add_comma = False
+							for ar in topic_entry.get('see_also', []):
 								
-								hstr += ", "
-							
-							hstr += ar
-							add_comma = True
-					
-					print(hstr)
-				except Exception as e:
-					print(f"Corrupt help data for selected entry '{hcmd}' ({e}).")
+								if add_comma:
+									
+									hstr += ", "
+								
+								hstr += ar
+								add_comma = True
+						
+						print(hstr)
+					except Exception as e:
+						print(f"Corrupt help data for selected entry '{hcmd}' ({e}).")
 		
 		else:
 			
