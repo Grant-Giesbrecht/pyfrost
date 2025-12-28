@@ -1,39 +1,4 @@
 {
-	"DUMMY":{
-		"description": "Does nothing",
-		"arguments": [
-			{
-				"name": "nothing1",
-				"type": "num",
-				"description": "Does nothing",
-				"optional": false
-			},
-			{
-				"name": "nothing2",
-				"type": "list",
-				"description": "Also does nothing",
-				"optional": true
-			}
-		],
-		"flags": [
-			{
-				"short": "-p",
-				"long": "-pnothing",
-				"description": "Does nothing"
-			}
-		],
-		"examples": [
-			{
-				"command": "dummy command",
-				"description": "What the command does"
-			}
-		],
-		"active_only": true,
-		"admin_only": false,
-		"host_only": false,
-		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
-		"see_also": ["DUMMY"]
-	},
 	"LOGIN":{
 		"description": "Login to the server. Prompts for account credentials.",
 		"arguments": [],
@@ -56,16 +21,16 @@
 		"context": ["LOGIN"],
 		"see_also": ["LOGIN", "LOGOUT"]
 	},
-	"EXIT":{
-		"description": "Exits the server and closes the client.",
+	"LOGOUT":{
+		"description": "Logout of the server, deauthorizing the current account.",
 		"arguments": [],
 		"flags": [],
 		"examples": [],
 		"active_only": false,
 		"admin_only": false,
 		"host_only": false,
-		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
-		"see_also": ["LOGIN"]
+		"context": ["MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": ["LOGIN", "SIGNUP"]
 	},
 	"CLEAR":{
 		"description": "Clears the screen. Alias of 'CLS'",
@@ -100,6 +65,17 @@
 		"context": ["OFFLINE"],
 		"see_also": []
 	},
+	"EXIT":{
+		"description": "Exits the server and closes the client.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": ["LOGIN"]
+	},
 	"VIEWDB":{
 		"description": "Displays user database contents.",
 		"arguments": [],
@@ -133,41 +109,6 @@
 		"context": ["MAIN"],
 		"see_also": ["SHUTDOWN", "VIEWDB"]
 	},
-	"NEWLOBBY":{
-		"description": "Creates a new lobby.",
-		"arguments": [],
-		"flags": [],
-		"examples": [],
-		"active_only": false,
-		"admin_only": false,
-		"host_only": false,
-		"context": ["MAIN"],
-		"see_also": ["JOINLOBBY", "LOBBYINFO"]
-	},
-	"JOINLOBBY":{
-		"description": "Joins an existing game lobby.",
-		"arguments": [
-			{
-				"name": "lobby-id",
-				"type": "num",
-				"description": "Lobby ID",
-				"optional": false
-			},
-			{
-				"name": "lobby-pwd",
-				"type": "str",
-				"description": "Lobby password",
-				"optional": false
-			}
-		],
-		"flags": [],
-		"examples": [],
-		"active_only": false,
-		"admin_only": false,
-		"host_only": false,
-		"context": ["MAIN"],
-		"see_also": ["NEWLOBBY", "LOBBYINFO"]
-	},
 	"MSGUSR":{
 		"description": "Sends an encrypted message to a user.",
 		"arguments": [
@@ -192,22 +133,16 @@
 		"context": ["MAIN", "LOBBY", "GAME", "RESULTS"],
 		"see_also": []
 	},
-	"LOBBYINFO":{
-		"description": "Shows information about the lobby the user is currently in.",
+	"NUMUSER":{
+		"description": "Counts the number of users currently logged on to the server.",
 		"arguments": [],
-		"flags": [
-			{
-				"short": "-l",
-				"long": "",
-				"description": "Show additional information."
-			}
-		],
+		"flags": [],
 		"examples": [],
 		"active_only": false,
 		"admin_only": false,
 		"host_only": false,
-		"context": ["GAME"],
-		"see_also": []
+		"context": ["LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": ["", ""]
 	},
 	"SYNC":{
 		"description": "Syncs the local state with data from the server.",
@@ -264,6 +199,58 @@
 		"admin_only": false,
 		"host_only": false,
 		"context": ["OFFLINE", "LOGIN", "MAIN", "LOBBY", "GAME", "RESULTS"],
+		"see_also": []
+	},
+	"NEWLOBBY":{
+		"description": "Creates a new lobby.",
+		"arguments": [],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["JOINLOBBY", "LOBBYINFO"]
+	},
+	"JOINLOBBY":{
+		"description": "Joins an existing game lobby.",
+		"arguments": [
+			{
+				"name": "lobby-id",
+				"type": "num",
+				"description": "Lobby ID",
+				"optional": false
+			},
+			{
+				"name": "lobby-pwd",
+				"type": "str",
+				"description": "Lobby password",
+				"optional": false
+			}
+		],
+		"flags": [],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["MAIN"],
+		"see_also": ["NEWLOBBY", "LOBBYINFO"]
+	},
+	"LOBBYINFO":{
+		"description": "Shows information about the lobby the user is currently in.",
+		"arguments": [],
+		"flags": [
+			{
+				"short": "-l",
+				"long": "",
+				"description": "Show additional information."
+			}
+		],
+		"examples": [],
+		"active_only": false,
+		"admin_only": false,
+		"host_only": false,
+		"context": ["GAME"],
 		"see_also": []
 	}
 }

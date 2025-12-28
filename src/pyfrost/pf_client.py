@@ -34,6 +34,32 @@ DEFAULT_CLIENTAGENT_SETTINGS = {
 # 	
 # 	cli_autosync = True
 
+def sync_from_cli(ca:ClientAgent):
+		
+		# Execute sync
+		ca.sync()
+		
+		# Print messages if received
+		if len(ca.notes) > 0:
+			print(f"Messages:")
+		for note in ca.notes:
+			print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
+		ca.notes = []
+
+def get_words(words:list, num:int) -> tuple:
+	'''
+	Returns:
+		bool, tuple: bool shows success/fail status, tuple contains requested words
+			or Nones if errors occured.
+	'''
+	
+	# Check that elements exist
+	if len(words) < num:
+		return False, (None,)*num
+	
+	# Return values
+	return True, tuple(words[:num])
+
 class ClientAgent:
 	""" This class handles networking for the client. It communicates with the
 	server and handles encryption and login.
@@ -894,17 +920,7 @@ def commandline_main(ca:ClientAgent, commandline_extended:Callable[[ClientAgent,
 	
 	'''
 	
-	def sync_from_cli(ca:ClientAgent):
-		
-		# Execute sync
-		ca.sync()
-		
-		# Print messages if received
-		if len(ca.notes) > 0:
-			print(f"Messages:")
-		for note in ca.notes:
-			print(f"\t{Fore.LIGHTBLACK_EX}({note.timestamp_created}){Fore.YELLOW}[FROM: {note.sender}]{Style.RESET_ALL}{note.msg}")
-		ca.notes = []
+	
 	
 	while True:
 		
@@ -951,6 +967,7 @@ def commandline_main(ca:ClientAgent, commandline_extended:Callable[[ClientAgent,
 		if len(words) < 1:
 			continue
 		cmd = words[0].str
+		word_args = [w.str for w in words[1:]]
 		
 		# Individual commands can set this to False if they want to disable
 		# autosync
@@ -1354,12 +1371,69 @@ def commandline_main(ca:ClientAgent, commandline_extended:Callable[[ClientAgent,
 			
 			# Run settings menu
 			ca.settings_manager.run()
+		
+		elif cmd.upper() == "NEWLOBBY":
 			
+			# Parse args and handle errors
+			try:
+				par = InternalArgumentParser()
+				par.add_argument('--cheat', action='store_true', help='Assign yourslef debug/cheat debug priviledges.')
+				parg = par.parse_args(word_args)
+			except ArgParseError as e:
+				console_respond(f"Invalid input arguments. ({e})")
+				continue
+			
+			cheat = False
+			if parg.cheat:
+				cheat = True
+
+			dat = ca.query_command(GenCommand("NEWLOBBY", data={"allow_cheat":cheat}))
+			try:
+				id = dat.data['lobby-id']
+				pwd = dat.data['password']
+			except Exception as e:
+				ca.log.error(f"Failed to unpack response to {cmd}. ({e})")
+				continue
+			
+			# Print response
+			ca.log.info(f"Game lobbby created. lobby-id:>{id}<, password:>:q{pwd}<")
+		
+		elif cmd.upper() == "JOINLOBBY":
+			
+			# Get input
+			status, (_, lobby_id, pwd) = get_words(words, 3)
+			if not status:
+				ca.log.error(f"Too few arguments for command {cmd}")
+			
+			# Send command to server
+			pf = ca.send_command(GenCommand("JOINLOBBY", data={"lobby-id":lobby_id.str, "pwd":pwd.str}))
+			if pf:
+				console_respond(f"{Fore.GREEN}Joined lobby{Style.RESET_ALL}")
+			else:
+				console_respond(f"{Fore.RED}Failed to join lobby.{Style.RESET_ALL}")
+				try:
+					console_respond(f"{ca.reply}")
+				except:
+					pass
+		
+		elif cmd.upper() == "LEAVELOBBY":
+			
+			# Send command to server
+			pf = ca.send_command(GenCommand("LEAVELOBBY"))
+			if pf:
+				console_respond(f"{Fore.GREEN}Left lobby{Style.RESET_ALL}")
+			else:
+				console_respond(f"{Fore.RED}Failed to leave lobby.{Style.RESET_ALL}")
+				try:
+					console_respond(f"{ca.reply}")
+				except:
+					pass
+		
 		else:
 			
 			# Check if custom handler is implemented and recognizes command
 			if commandline_extended is not None:
-				found_cmd = commandline_extended(ca, words)
+				(found_cmd, autosync_eligable) = commandline_extended(ca, words)
 			else:
 				found_cmd = False
 			
